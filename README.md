@@ -24,13 +24,13 @@ Or clone this repo next to the app's repo.
 | `docs/keys.md` | Keycode table, soft keys, OK/Back/Clear, number keys, repeats |
 | `docs/focus-and-lists.md` | Focus highlight, lists, scrolling, menus |
 | `docs/text-input.md` | EditText vs NoImeEditText, T9 conventions, secrets |
-| `docs/layout-and-type.md` | Screen size, font sizes, rendering quirks, flip config changes |
+| `docs/layout-and-type.md` | Screen size, hiding the system soft-key bar, font sizes, rendering quirks, flip config changes |
 | `docs/platform.md` | SDK levels, manifest, no-GMS replacements, OEM/accessibility quirks |
 | `docs/network-battery.md` | Refresh throttling, caching, threads, Wi-Fi binding, audio |
 | `docs/distribution.md` | Sideloading, releases, signing, README expectations |
 | `docs/testing.md` | QVGA emulator, unknown-key toast, on-device testing |
 | `docs/devices.md` | Known phones and their quirks |
-| `templates/` | `FlipBaseActivity.kt`, `list_row_selector.xml`, `NoImeEditText.kt`, manifest snippets |
+| `templates/` | `FlipBaseActivity.kt`, `SystemBars.kt` (hides the system soft-key bar), `list_row_selector.xml`, `NoImeEditText.kt`, manifest snippets |
 
 ## Contributing
 When you find a new quirk, add a one-line rule to `AGENTS.md`. Add the full entry, in the

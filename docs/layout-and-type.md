@@ -6,6 +6,7 @@ Each entry gives the **rule** first, then *why* it exists.
 - **Design for 240×320 px at mdpi (2.4–2.8″).** Some models are 320×240 landscape (see
   [devices.md](devices.md)).
 - **Typical screen chrome:** a 24dp title bar, about 270dp of content and a 26dp soft-key bar.
+  Hide the system's own soft-key bar (see [below](#system-soft-key-bar)) so only yours shows.
 - **Size grid cells and rail slots from the available pixels, not fixed dp**, and keep
   per-cell padding small (20dp, not 36dp).
 - **Use `minHeight` for rows, never a fixed height.** Give status and flash lines a fixed height,
@@ -14,6 +15,36 @@ Each entry gives the **rule** first, then *why* it exists.
   while the user scrolls through messages. *Why:* it was hiding short messages.
 - **Full-screen apps hide the status bar, so show the battery level yourself** using the sticky
   `ACTION_BATTERY_CHANGED` broadcast.
+
+## System soft-key bar
+Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`.
+
+- **Hide the white soft-key label bar the phone draws at the bottom of the screen, on every
+  screen.** It is the system *navigation bar*. *Why:* your app's own soft-key bar already shows
+  the labels, so the system one wastes about 26dp of a 320px screen and shows labels that may not
+  match your keys.
+- **Don't offer a setting to show it again.** *Why:* the app's own bar replaces it, so showing
+  both just repeats the labels.
+- **Apply both methods, on every API level:**
+  - Android 11+: `window.insetsController.hide(WindowInsets.Type.navigationBars())`, with
+    `systemBarsBehavior = BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`.
+  - Every API level: `SYSTEM_UI_FLAG_HIDE_NAVIGATION | SYSTEM_UI_FLAG_IMMERSIVE_STICKY` on the
+    decor view's `systemUiVisibility`, **and** the same flags in `window.attributes`.
+
+  *Why:* vendor keypad ROMs often honor only the old flags, and flags set in the window
+  attributes survive system-initiated clears better than the view flag alone.
+- **Apply it again in `onResume()`, in `onWindowFocusChanged(true)`, once more through
+  `decor.post {}`, and from an `OnSystemUiVisibilityChangeListener`.** *Why:* the decor isn't
+  attached yet early in a launch, and dialogs and focus changes bring the bar back.
+- **Leave the system T9 keyboard alone when it brings the bar back while typing** (for example
+  in a town-search field). *Why:* the keyboard uses the bar for its word labels. The bar hides
+  again when focus returns to your window.
+- **Don't draw your window under the bar.** Let the content grow into the freed space.
+  *Why:* if a ROM refuses to hide the bar, your own bar then sits above it rather than behind it.
+- **On a framework theme (`Theme.DeviceDefault`), check for a leftover strip.** *Why:* some
+  vendor builds of that theme keep drawing a bottom strip after a hide that looks successful.
+  AppCompat themes don't.
+- *Source:* the same approach the vela-dpad maps app uses, through its Yapchik softkey library.
 
 ## Type sizes
 

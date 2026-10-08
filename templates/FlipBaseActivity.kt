@@ -26,6 +26,10 @@ import androidx.appcompat.app.AppCompatActivity
  *   CALL / END     - always fall through to super so the phone still
  *                    dials/hangs up.
  *
+ * The phone's white soft-key label bar (the system navigation bar) is hidden
+ * on every screen, in onResume and again whenever the window regains focus
+ * (see SystemBars.kt). Your layouts draw their own soft-key bar.
+ *
  * If a view (MapView etc.) swallows CENTER before onKeyDown, override
  * dispatchKeyEvent in that screen and handle CENTER/ENTER before super.
  */
@@ -44,6 +48,17 @@ abstract class FlipBaseActivity : AppCompatActivity() {
     open fun onOptionsKey() {}
     /** Return true if handled. Default does nothing, so the key falls through. */
     open fun onCenterKey(): Boolean = false
+
+    override fun onResume() {
+        super.onResume()
+        SystemBars.hideNavigation(this)
+    }
+
+    // Hide it again after a dialog or the system T9 keyboard brought it back.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) SystemBars.hideNavigation(this)
+    }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!handlesHorizontalKeys && event.action == KeyEvent.ACTION_DOWN && currentFocus !is EditText) {

@@ -128,6 +128,10 @@ because the obvious approach broke on the device.
 - **One line per label, ellipsized.** Use `minHeight`, not fixed row heights. Give status and
   message lines a fixed height so the layout doesn't jump.
 - **Use a dark background with high contrast**, at least 7:1.
+- **Hide the system soft-key label bar** (the white bar the phone draws at the bottom) on every
+  screen, and draw your own labelled bar instead. It is the system navigation bar. Use
+  `templates/SystemBars.kt` from `onResume()` and `onWindowFocusChanged(true)`. Don't offer a
+  setting to show it again. The system T9 keyboard brings it back while typing, which is fine.
 - **Bold doesn't render with the stock font.** Use `paint.isFakeBoldText = true`.
 - **Some glyphs don't render with the stock font.** ⏯ and ⏸ show as boxes; ■ and ▶ are fine.
   Keep emoji to a curated set.
@@ -137,7 +141,7 @@ because the obvious approach broke on the device.
   `android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"`,
   and lock to portrait unless the app supports landscape.
 
-→ Details: [docs/layout-and-type.md](docs/layout-and-type.md)
+→ Details: [docs/layout-and-type.md](docs/layout-and-type.md#system-soft-key-bar)
 
 ### 5. Platform and SDK
 - **SDK levels:**
