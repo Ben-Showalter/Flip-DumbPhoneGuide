@@ -46,17 +46,28 @@ because the obvious approach broke on the device.
   - Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.
 - **Repeats:** run one-shot actions only when `event.repeatCount == 0`. Let movement keys
   (scroll, pan) repeat.
-- **Hold actions:** for a long press, either compare `eventTime - downTime`, or call
-  `event.startTracking()` and check `isLongPress`. Swallow the matching key-up so the tap action
-  doesn't also run.
+- **Hold actions: time the hold yourself.** Post a delayed runnable on the first DOWN, cancel
+  it on UP, and swallow the UP once it has fired. Don't trust `isLongPress` on Kyocera keypads:
+  it can fire both the tap and the hold for one press. Some presses also send a spurious extra
+  UP mid-hold with the same `downTime`; ignore a second UP for a `downTime` you've already
+  handled.
 - **If you consume a key's DOWN, also consume its UP.** Otherwise the stray UP reaches the next
   window or app.
+- **Act on an UP only if this window saw its DOWN.** Otherwise the UP of the key that opened
+  this screen fires an action here.
 - **When a key launches another app** (for example the dialer), launch it on key **UP**.
   Otherwise the UP reaches that app and types a second digit.
 - **Unhandled CALL/END must reach `super`**, so the phone still dials and hangs up.
   **CALL works well as Send** in compose screens.
-- **Mic/Assistant key** is `KEYCODE_F4` when an app has focus and raw code `287` when none
-  does. Match both.
+- **Mic/Assistant key** is `KEYCODE_F4` or raw code `287` (the E4610 sends 287 even when an
+  app has focus). Match both.
+- **Outer buttons (SOS, outer END, outer Speaker, PTT) have no usable keycode.** Identify them
+  by `event.scanCode` (see [docs/keys.md](docs/keys.md)). They report only the press, never how
+  long it's held, so they can't have a long press. Act on them only while your window has focus,
+  the screen is on and the keyguard is down, so presses in a pocket do nothing.
+- **Bluetooth headset buttons send `KEYCODE_MEDIA_PLAY_PAUSE` or `KEYCODE_HEADSETHOOK`**, not
+  PAUSE. To catch them reliably while text-to-speech is playing, use an accessibility service
+  that filters key events (§5).
 - **Avoid these keys:**
   - **Camera key:** the OS swallows it.
   - **Volume Up:** it opens a volume popup that steals window focus. You *can* reuse volume keys
@@ -76,6 +87,7 @@ because the obvious approach broke on the device.
     to see.
   - Buttons and fields: a `<selector>` with a filled `state_focused` item. Set
     `stateListAnimator="@null"` on Buttons.
+  - App icons: a ring around the focused icon, never a fill behind it.
 - **The list container must not take focus:**
   - Set `isFocusable = false` on the `RecyclerView` itself.
   - Use `descendantFocusability="afterDescendants"`. Rows are focusable.
@@ -136,7 +148,9 @@ because the obvious approach broke on the device.
 - **Some glyphs don't render with the stock font.** ⏯ and ⏸ show as boxes; ■ and ▶ are fine.
   Keep emoji to a curated set.
 - **Use Android Views, not Compose.** Views handle D-pad focus well and are lighter on 2 GB phones.
-- **Use short animations (≤150ms), alpha only, no ripples.**
+- **Use short animations (≤150ms), alpha only, no ripples** - or none at all.
+- **Over a wallpaper or photo, scale the dark scrim to the image's brightness**, and fade a near-
+  black (~98%) backing out below the status bar rather than drawing a hard strip.
 - **Opening or closing the flip must not recreate the activity.** Use
   `android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"`,
   and lock to portrait unless the app supports landscape.
@@ -171,6 +185,14 @@ because the obvious approach broke on the device.
   - Keep `onKeyEvent` cheap: it blocks key delivery to every app.
   - Launch activities from a service with `PendingIntent.send()`, because the OEM throttles
     `startActivity()` from the background.
+  - After an update adds a capability (such as key filtering), the user must switch the service
+    off and on once.
+- **Notification Access doesn't work on the E4810/E4811 (Android 9+).** It looks granted but
+  never binds. Fall back to an accessibility service's notification events; they have no
+  active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
+- **`resolveActivity()` returns Android's chooser (package `android`)** when several apps match
+  and none is default. Treat that as unresolved.
+- **Ask for missing access at startup, one item at a time**, with a toast giving the D-pad path.
 
 → Details: [docs/platform.md](docs/platform.md)
 
@@ -214,6 +236,7 @@ devices: [docs/devices.md](docs/devices.md)
 - [ ] `touchscreen required=false`, `configChanges` for the flip, no `gms` dependency
 - [ ] `minSdk` ≤ 24 and no API calls above it
 - [ ] A toast for unhandled keycodes; plain-language errors on screen
+- [ ] Every action fires on UP, only for a press whose DOWN this window saw
 - [ ] Refresh throttle and cached last result
 - [ ] README: device tested, sideload steps, key map table
 - [ ] Tested on a 240×320 mdpi emulator with touch off, then on the real phone

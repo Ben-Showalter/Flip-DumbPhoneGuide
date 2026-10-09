@@ -14,7 +14,12 @@ Each entry gives the **rule** first, then *why* it exists.
 | Back (where separate) | `KEYCODE_BACK` | Never swap it with the soft keys |
 | Call / Send | `KEYCODE_CALL` | Good as "Send"; let it through to `super` when unhandled |
 | End | `KEYCODE_ENDCALL` | Acts as Home; leave it alone |
-| Mic / Assistant | `KEYCODE_F4` (134) when an app has focus, raw `287` (`KEYCODE_SPEAKER_IN`, which has no constant) when none does | Match both |
+| Mic / Assistant | `KEYCODE_F4` (134) when an app has focus, raw `287` (`KEYCODE_SPEAKER_IN`, which has no constant) when none does. The E4610 sends 287 (scan 171) even when an app has focus | Match both |
+| Outer SOS | no usable keycode; scan code `763` (E4810) | Match by `scanCode`. Press only, no hold |
+| Outer END | scan code `764` (E4810), `172` (E4610) | Match by `scanCode`. Press only, no hold |
+| Outer Speaker | scan code `765` (E4810), `213` (E4610) | Match by `scanCode`. Press only, no hold |
+| PTT | scan code `766` (E4810), `231` (E4610) | Match by `scanCode`. Press only, no hold |
+| Bluetooth headset button | `KEYCODE_MEDIA_PLAY_PAUSE` or `KEYCODE_HEADSETHOOK` | Rarely `MEDIA_PAUSE`; see below |
 | Camera | swallowed by the OS | Unavailable to apps |
 | Volume Up/Down | `KEYCODE_VOLUME_UP/DOWN` | Volume Up opens a popup that steals focus |
 | `*` | `KEYCODE_STAR` or `KEYCODE_NUMPAD_MULTIPLY` (Sonim) | Match both |
@@ -81,17 +86,25 @@ it here.
 - **Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.**
 - **Digits that open the dialer act on key UP.**
   *Why:* if you open it on DOWN, the UP reaches the dialer and the first digit is typed twice.
-- **Long press:** use one of these.
-  - Compare `event.eventTime - event.downTime >= HOLD_MS` on repeat events, with a `handled`
-    flag that stops the UP counting as a tap.
-  - Or call `event.startTracking()` on the first DOWN and check `isLongPress`.
-
-  *Why:* `isLongPress` alone doesn't fire reliably on some devices.
+- **Long press: time the hold yourself.** Post a delayed runnable on the first DOWN
+  (`repeatCount == 0`), cancel it on UP, and when it has fired, swallow the UP so it doesn't
+  also count as a tap. Comparing `event.eventTime - event.downTime >= HOLD_MS` on repeat events
+  also works where repeats arrive.
+  *Why:* on the Kyocera keypad, `isLongPress` delivery is unreliable; a held digit fired both
+  the tap (dial) and the hold (speed dial) for the same press.
+- **Ignore a second UP for a `downTime` you've already handled.**
+  *Why:* some presses deliver a spurious extra `ACTION_UP` mid-hold, sharing the real press's
+  `downTime`. It looked like a release and dialled twice. Don't clear this state in `onPause`:
+  the dial that the first UP launched pauses the activity before the spurious UP arrives.
 
 ## Repeats and pairing
 - **Fire on the first press only:** `val first = down && event.repeatCount == 0`.
 - **When you consume a DOWN, consume its UP too.**
   *Why:* a stray UP reaches the next window ("Cancelling event due to no window focus").
+- **Act on an UP only if this window saw its DOWN.** Track pressed keys in a set on DOWN and
+  fire on UP only when the key is removed from it (and the UP isn't canceled).
+  *Why:* the UP of the press that opened or closed a screen lands in the next window. A launcher
+  opened Notices from the UP of the key that had just closed another screen.
 - **Hold to act, release to stop:** store keycode → action on DOWN, and stop that same action on
   UP. *Why:* the stop has to match the start even if a setting changed mid-press.
 - **Release all held keys in `onWindowFocusChanged(false)`, in `onPause`, and before opening
@@ -114,3 +127,32 @@ it here.
   *Why:* raw key capture in Dialog windows behaves differently across OEM builds.
 - **If two installed apps both hook the same hardware key**, one must ignore it while the other
   is in the foreground.
+
+## Outer buttons (Kyocera)
+- **Identify SOS, outer END, outer Speaker and PTT by `event.scanCode`** (see the table above),
+  mapped to your own logical keys in one place.
+  *Why:* they arrive with no usable `KEYCODE_*`, and the scan codes differ between the E4810
+  and E4610.
+- **No long press on them.** *Why:* the phone reports only the press, never how long the
+  button is held. A hold timer never fired; it was tried and reverted.
+- **Act on a single press, but only while your window has focus, the screen is on and the
+  keyguard is down.** *Why:* these buttons sit on the outside of the phone and get pressed in a
+  pocket. Closing the flip turns the screen off, which covers that case. Don't use the
+  `keyboardHidden` configuration to detect a closed flip; it's unreliable on these keypads.
+- **Kyocera's own button assignment (`kyocera.intent.action.PTT_SETTINGS`) only works under
+  Kyocera Home.** *Why:* it's a Kyocera Home feature, so a replacement launcher must assign the
+  buttons itself.
+
+## Bluetooth headset buttons
+- **Treat `KEYCODE_MEDIA_PLAY_PAUSE` and `KEYCODE_HEADSETHOOK` as pause.**
+  *Why:* headsets rarely send `MEDIA_PAUSE`, and `MediaSession`'s default `onMediaButtonEvent`
+  ignores PLAY_PAUSE unless `ACTION_PLAY_PAUSE` is advertised, and never maps HEADSETHOOK.
+  Override `onMediaButtonEvent`.
+- **On Android 7 set `FLAG_HANDLES_MEDIA_BUTTONS`** (deprecated, a no-op on 26+).
+  *Why:* without it the session receives no media buttons on the E4610.
+- **For text-to-speech, also catch the buttons in an accessibility service that filters key
+  events** (see [platform.md](platform.md)). *Why:* on Android 8+ media buttons go to the app
+  that last played audio, and TTS audio is played by the speech engine's process, so your
+  session may never be chosen.
+- **To let any button stop a readout,** consume the stopping press (DOWN and UP) and let volume
+  keys through so the user can still adjust the volume.

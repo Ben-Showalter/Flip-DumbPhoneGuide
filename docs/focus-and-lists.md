@@ -16,6 +16,8 @@ Each entry gives the **rule** first, then *why* it exists.
   2dp stroke and the default state uses a dim 1dp stroke. Set `stateListAnimator="@null"` on
   Buttons.**
 - **Cover `state_focused`, `state_selected` and `state_pressed`.**
+- **Focused app icons: draw a ring around the icon, never a fill behind it.**
+  *Why:* a fill in the accent or icon colour washed out icons drawn in that colour.
 
 ## Focusability
 - **Interactive views: `focusable="true"`, `focusableInTouchMode="false"`.** Text fields are the

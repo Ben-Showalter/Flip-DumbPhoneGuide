@@ -86,12 +86,45 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   What works: `getRunningTasks()` first, then let UsageStats veto a "Home" result, with no age
   limit on the veto (an age limit let the hook fire inside other apps).
   Kyocera home is `jp.kyocera.kyocerahome.HomeScreenActivity`.
+- **To filter key events, set `canRequestFilterKeyEvents="true"` and
+  `flagRequestFilterKeyEvents` in the XML, and `FLAG_REQUEST_FILTER_KEY_EVENTS` in code.** Keep
+  `onKeyEvent` to one volatile read when idle. *Why:* it's the only hook that sees every button,
+  including Bluetooth headset keys, in any app and with the flip closed.
+- **After an update adds a capability to the service, the user must switch it off and on.**
+  *Why:* Android grants capabilities such as key filtering only when the service is enabled.
 - **Inserting text into another app:** find the focused editable node across all windows,
   paste via the clipboard (`ACTION_PASTE`), then restore the clipboard. On this OEM an empty
   field reports its hint as its text, so don't rely on `isShowingHintText`.
 - **Feedback without a touchscreen:** a 40ms vibration plus a non-touchable
   `TYPE_ACCESSIBILITY_OVERLAY` (API 26+). Below 26, use `TYPE_PHONE`, and only after
   `canDrawOverlays()`; otherwise it throws BadTokenException.
+
+## Notifications
+- **Notification Access is non-functional on the Kyocera E4810/E4811 (Android 9+).**
+  `Settings.Secure` and `cmd notification allow_listener` appear to succeed and the component
+  shows in `enabled_notification_listeners`, but `dumpsys notification` shows it never binds;
+  only Kyocera's own listeners do. *Why:* a platform restriction on the newer models; the same
+  code works on the E4610 (Android 7). Don't re-diagnose it.
+- **Fallback: an accessibility service's `TYPE_NOTIFICATION_STATE_CHANGED` events.**
+  - There's no list of active notifications and no removal event, so you can't build a full
+    notification list from it.
+  - Store the events in arrival order and pick the newest by `postTime`, never by list
+    position. *Why:* the listener's list is newest-first and the event store is oldest-first;
+    code shared between them showed the oldest message.
+
+## Resolving apps
+- **Treat a `resolveActivity()` result in package `android` as unresolved.**
+  *Why:* when several apps handle an intent and none is the default, it returns Android's
+  chooser, so "the Gallery app" turned out to be the chooser.
+- **Look for a category's app by known packages first, then all handlers, then label.**
+- **To show an OEM activity in an app list, use an `<activity-alias>` of a small trampoline
+  activity** that launches it and finishes. Catch `ActivityNotFoundException` and show a toast.
+
+## Startup prompts
+- **At startup, check the access the app needs (default Home, accessibility, …) and ask for
+  one missing item at a time, at most once per start.** Each prompt opens the general settings
+  screen and shows a toast with the D-pad path. *Why:* several dialogs at once stack up and
+  can't all be answered; the per-app deep links don't work (see above).
 
 ## Outer display and LED (Kyocera)
 - **The outer display (sub-LCD) is reachable by reflection** on
