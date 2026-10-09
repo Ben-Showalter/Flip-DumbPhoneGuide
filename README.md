@@ -35,3 +35,6 @@ Or clone this repo next to the app's repo.
 ## Contributing
 When you find a new quirk, add a one-line rule to `AGENTS.md`. Add the full entry, in the
 format *Rule → Why*, to the matching `docs/` file.
+
+## License
+MIT. See [LICENSE](LICENSE).
