@@ -76,11 +76,18 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
 ## Colour and theme
 - **Use a dark background with high contrast, at least 7:1.** A warm accent such as orange reads
   well; night-use apps can go red-on-black.
+- **Over a wallpaper or photo, scale the dark scrim to the image's brightness.** Measure the
+  average luminance once per image, off the main thread, and cache it. *Why:* a fixed scrim
+  either leaves text unreadable on bright wallpapers or darkens dark ones for no reason.
+- **Behind a transparent status bar, put about 98% black and fade it out over ~48dp.**
+  *Why:* status icons need near-black behind them, and a hard-edged strip looked like a bug.
 - **Use `Theme.AppCompat.NoActionBar`, or framework `android:Theme.Material.NoActionBar` when you
   have no AppCompat dependency.** Draw your own header. *Why:* an action bar wastes rows.
 
 ## Motion
 - **Animations: at most 150ms, alpha only, no ripples.** Let the user turn them off on slow chips.
+  No motion at all also works well: a launcher with every transition and list animator off felt
+  faster on these phones.
 - **Animated content:** keep frames few. A radar loop works well with about 7 frames at 500ms.
   Add every frame as its own layer up front and switch each layer's opacity on and off, rather
   than reloading sources. Stop timers in `onPause`.
