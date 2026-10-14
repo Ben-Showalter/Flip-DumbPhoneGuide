@@ -24,8 +24,8 @@ Or clone this repo next to the app's repo.
 | `docs/keys.md` | Keycode table, soft keys, OK/Back/Clear, number keys, repeats |
 | `docs/focus-and-lists.md` | Focus highlight, lists, scrolling, menus |
 | `docs/text-input.md` | EditText vs NoImeEditText, T9 conventions, secrets |
-| `docs/layout-and-type.md` | Screen size, hiding the system soft-key bar, font sizes, rendering quirks, flip config changes |
-| `docs/platform.md` | SDK levels, manifest, no-GMS replacements, OEM/accessibility quirks |
+| `docs/layout-and-type.md` | Screen size, hiding the system soft-key bar, icons, font sizes, rendering quirks, flip config changes |
+| `docs/platform.md` | SDK levels, manifest, no-GMS replacements, opening the app, OEM/accessibility quirks, the outer display |
 | `docs/network-battery.md` | Refresh throttling, caching, threads, Wi-Fi binding, audio |
 | `docs/distribution.md` | Sideloading, releases, signing, README expectations |
 | `docs/testing.md` | QVGA emulator, unknown-key toast, on-device testing |

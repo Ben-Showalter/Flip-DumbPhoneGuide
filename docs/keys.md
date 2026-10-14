@@ -37,6 +37,18 @@ it here.
   See `templates/FlipBaseActivity.kt`.
 - **Accept `KEYCODE_MENU` as a soft key.**
   *Why:* the soft keys don't send `SOFT_LEFT`/`SOFT_RIGHT` on every device.
+- **Consume the whole MENU press in `dispatchKeyEvent`: its DOWN, its UP and its repeats.**
+  *Why:* AppCompat opens its own (empty) options panel on MENU UP, covering the menu your DOWN
+  just opened. On a Sonim XP3800, MENU looked like it did nothing. FlipWeather does this too.
+- **Optional: pick the Options side automatically from the keys the phone sends.**
+  - Default: Options on the right soft key.
+  - The first `KEYCODE_MENU` moves the "Options" label to the left; a `KEYCODE_SOFT_RIGHT` keeps
+    it on the right.
+  - Store the result. Once MENU has been seen, keep Options on the left. *Why:* a phone that
+    sends both keys would otherwise flip the layout on every press.
+  - MENU always means Options and BACK always means Back; neither is swapped.
+  - Map the key that triggered the change with the new layout, so the first press already does
+    what its new label says.
 - **Translate raw keycodes into logical keys in one place.**
   *Why:* when a new phone sends different codes, you fix one table.
 - **Never swap or remap BACK along with the soft keys.**
@@ -44,6 +56,11 @@ it here.
 - **The system T9 keyboard can swallow `KEYCODE_SOFT_RIGHT` while a text field is focused.**
   *Why:* seen on Kyocera. The only workaround is an accessibility service that filters key
   events, and it isn't reliable. Plan text screens so Options can be reached another way.
+- **On Kyocera, neither soft key is reliable while a text field is focused.** The system T9
+  keyboard uses the **left** soft key for its T9/abc/123 menu and can swallow the right one.
+  Give text screens a focusable "More options…" row (for example at the end of a form) that
+  opens the same menu with OK. *Why:* a sign-in screen that starts with focus in a text box had
+  no way to reach Options.
 
 ## OK / CENTER
 - **Match `DPAD_CENTER` and `ENTER`.** *Why:* devices send either one for the same key.

@@ -21,6 +21,15 @@ Each entry gives the **rule** first, then *why* it exists.
   the emulator for clean signals.
 - **For focus checks, don't trust `uiautomator dump`.** *Why:* it can catch focus halfway
   through an update. Prefer `screencap` after 0.5–0.8s, or `dumpsys window | grep mCurrentFocus`.
+- **On Windows, run `adb` from Android Studio's Terminal** (PowerShell) after
+  `$env:Path += ";$env:LOCALAPPDATA\Android\Sdk\platform-tools"`. In the Logcat tab, filter
+  with `tag:<App>Keys`. *Why:* `adb` isn't on the path there by default.
+- **Test an OEM API with a debug-only probe receiver**, triggered by
+  `adb shell am broadcast -n <package>/.Probe --ez <test> true`.
+  - Put the step number in what the screen shows (for example `3 title test`) and log one line
+    per step, so the user can report "step 3 was blank".
+  - Keep it in the debug source set only.
+  - *Why:* it turned build-and-guess rounds on the outer display into one run per question.
 - **Check every direction-dependent behaviour on the device** (map pan signs, D-pad layout).
   *Why:* the docs were wrong for MapLibre `scrollBy`.
 

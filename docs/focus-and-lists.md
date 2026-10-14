@@ -55,7 +55,17 @@ Each entry gives the **rule** first, then *why* it exists.
   animations and leaves the top row half hidden.
 - **For a settings screen, use a `ScrollView` with `fillViewport="true"` around focusable
   Buttons.** The D-pad moves focus and the ScrollView follows it with no extra code.
-- **Chat-style lists use `stackFromEnd = true`.**
+- **Chat-style lists: `stackFromEnd = true`, and follow the bottom yourself.**
+  *Why:* `stackFromEnd` only places content at the bottom on the first layout. New rows land
+  below the screen, and rows that grow after binding (an image loading, receipts appearing)
+  push the newest message further down.
+  - Keep a "follow bottom" flag. In `onScrolled`, set it to `!rv.canScrollVertically(1)`, but
+    ignore calls with `dy == 0`: those are layout passes, not the user scrolling.
+  - When following, scroll to the last row in the `submitList(rows) { … }` commit callback, and
+    again from a global layout listener whenever the list can still scroll down.
+  - With `stackFromEnd`, `scrollToPosition(last)` puts the last row's bottom flush with the
+    list's bottom, even when the row is taller than the list.
+  - Sending a message always follows again.
 
 ## Menus and dialogs
 - **Use `AlertDialog.Builder.setItems(...)` for menus.** It works with the D-pad as is.
