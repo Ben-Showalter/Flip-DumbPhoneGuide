@@ -19,6 +19,10 @@ The Kyocera models in use run Android 7, 9 and 10, all confirmed on real devices
 - The stock "MESSAGE" home shortcut is hard-wired to `com.android.mms`.
 - Kyocera Home's menus: `jp.kyocera.kyocerahome/.MediaCenterMenuActivity`, `.ToolsMenuActivity`
   and `.QuickSettingsActivity`.
+- Quick Settings that works under any launcher (E4810/E4811):
+  `jp.kyocera.settings.nfp/.core.Settings$QuickSettingsActivity`, action
+  `jp.kyocera.settings.programmablekey.action.SHORTCUTS`. This is what the phone's
+  programmable-key shortcut opens. See [platform.md](platform.md#oem-settings-and-permissions-kyocera).
 - Call log: `com.android.dialer/.calllog.CallLogActivityKc` (E4610) or
   `.app.calllog.CallLogActivityKc` (newer models). Try both.
 - Speed Dial screen: `com.android.dialer/.speeddial.SpeedDialActivity` (E4610) or

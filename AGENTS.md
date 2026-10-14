@@ -208,6 +208,10 @@ because the obvious approach broke on the device.
   active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
 - **`resolveActivity()` returns Android's chooser (package `android`)** when several apps match
   and none is default. Treat that as unresolved.
+- **For Quick Settings under your own launcher, open
+  `jp.kyocera.settings.nfp/.core.Settings$QuickSettingsActivity`**
+  (action `jp.kyocera.settings.programmablekey.action.SHORTCUTS`). Kyocera Home's copy can't open
+  Airplane mode, Bluetooth or Hotspot on the E4810/E4811 unless Kyocera Home is the default.
 - **Ask for missing access at startup, one item at a time**, with a toast giving the D-pad path.
 - **A launcher tap resumes the last screen** (no new intent arrives). To always open on home,
   decide in `onResume`: go home after `onUserLeaveHint`, but not when returning from a screen

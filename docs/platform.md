@@ -67,6 +67,14 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   path.
 - **On Android 13+, sideloaded apps may hit "restricted settings"** when the user tries to turn
   on accessibility.
+- **For Quick Settings under a third-party launcher (E4810/E4811), open Kyocera Settings' copy**,
+  `jp.kyocera.settings.nfp/.core.Settings$QuickSettingsActivity` with action
+  `jp.kyocera.settings.programmablekey.action.SHORTCUTS`, not Kyocera Home's
+  `jp.kyocera.kyocerahome/.QuickSettingsActivity`. *Why:* unless Kyocera Home is the default
+  launcher, its menu can't open Airplane mode, Bluetooth or Hotspot. It catches the error inside
+  `IntentStrategy.startActivitySafely`, so nothing visible happens, and the same rows fail in the
+  phone's own Settings too. The Settings copy, which the phone's programmable-key shortcut opens,
+  works under any launcher. Kyocera Home's menu still works on the E4610 (Android 7).
 
 ## Accessibility services (global key hooks)
 - **Set the service flags in code as well as in the XML config.** *Why:* the OEM build doesn't
