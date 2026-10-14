@@ -1,7 +1,9 @@
 package com.example.app // TODO: your package
 
 import android.content.Intent
+import android.os.Bundle
 import android.view.KeyEvent
+import android.view.ViewTreeObserver
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -11,7 +13,10 @@ import androidx.appcompat.app.AppCompatActivity
  * Every screen extends this. Override the hooks, not onKeyDown.
  *
  *   Left softkey   - onPrimaryKey()   (Refresh / New / the screen's main action)
- *   Right softkey  - onOptionsKey()   (Options / Settings). KEYCODE_MENU too.
+ *   Right softkey  - onOptionsKey()   (Options / Settings). KEYCODE_MENU too:
+ *                    its whole press (DOWN, UP, repeats) is consumed in
+ *                    dispatchKeyEvent, because AppCompat opens its own
+ *                    options panel on MENU UP over yours.
  *   OK (CENTER or ENTER) - onCenterKey(). Handled at the onKeyDown stage on
  *                    purpose, so a focused list row gets first crack at it.
  *   D-pad LEFT/RIGHT - shift through mainScreens in order, clamped at the
@@ -28,7 +33,8 @@ import androidx.appcompat.app.AppCompatActivity
  *
  * The phone's white soft-key label bar (the system navigation bar) is hidden
  * on every screen, in onResume and again whenever the window regains focus
- * (see SystemBars.kt). Your layouts draw their own soft-key bar.
+ * (see SystemBars.kt), except while a text field has focus: the T9 keyboard
+ * shows its labels there. Your layouts draw their own soft-key bar.
  *
  * If a view (MapView etc.) swallows CENTER before onKeyDown, override
  * dispatchKeyEvent in that screen and handle CENTER/ENTER before super.
@@ -49,18 +55,40 @@ abstract class FlipBaseActivity : AppCompatActivity() {
     /** Return true if handled. Default does nothing, so the key falls through. */
     open fun onCenterKey(): Boolean = false
 
+    // Show the system bar while a text field has focus (the T9 keyboard's
+    // labels live there); hide it again when focus leaves.
+    private val barFocusListener = ViewTreeObserver.OnGlobalFocusChangeListener { _, newFocus ->
+        if (newFocus is EditText) SystemBars.showNavigation(this) else SystemBars.hideNavigation(this)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener(barFocusListener)
+    }
+
+    override fun onDestroy() {
+        window.decorView.viewTreeObserver.removeOnGlobalFocusChangeListener(barFocusListener)
+        super.onDestroy()
+    }
+
     override fun onResume() {
         super.onResume()
         SystemBars.hideNavigation(this)
     }
 
-    // Hide it again after a dialog or the system T9 keyboard brought it back.
+    // Hide it again after a dialog brought it back (not while typing).
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) SystemBars.hideNavigation(this)
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // MENU = Options, and the whole press is ours: AppCompat would open its
+        // own options panel on MENU UP, covering the one we just opened.
+        if (event.keyCode == KeyEvent.KEYCODE_MENU) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) onOptionsKey()
+            return true
+        }
         if (!handlesHorizontalKeys && event.action == KeyEvent.ACTION_DOWN && currentFocus !is EditText) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> { shift(-1); return true }
@@ -74,7 +102,7 @@ abstract class FlipBaseActivity : AppCompatActivity() {
         val first = (event?.repeatCount ?: 0) == 0
         when (keyCode) {
             KeyEvent.KEYCODE_SOFT_LEFT -> { if (first) onPrimaryKey(); return true }
-            KeyEvent.KEYCODE_SOFT_RIGHT, KeyEvent.KEYCODE_MENU -> { if (first) onOptionsKey(); return true }
+            KeyEvent.KEYCODE_SOFT_RIGHT -> { if (first) onOptionsKey(); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 if (first && onCenterKey()) return true
             }

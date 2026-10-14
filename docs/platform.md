@@ -67,6 +67,14 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   path.
 - **On Android 13+, sideloaded apps may hit "restricted settings"** when the user tries to turn
   on accessibility.
+- **For Quick Settings under a third-party launcher (E4810/E4811), open Kyocera Settings' copy**,
+  `jp.kyocera.settings.nfp/.core.Settings$QuickSettingsActivity` with action
+  `jp.kyocera.settings.programmablekey.action.SHORTCUTS`, not Kyocera Home's
+  `jp.kyocera.kyocerahome/.QuickSettingsActivity`. *Why:* unless Kyocera Home is the default
+  launcher, its menu can't open Airplane mode, Bluetooth or Hotspot. It catches the error inside
+  `IntentStrategy.startActivitySafely`, so nothing visible happens, and the same rows fail in the
+  phone's own Settings too. The Settings copy, which the phone's programmable-key shortcut opens,
+  works under any launcher. Kyocera Home's menu still works on the E4610 (Android 7).
 
 ## Accessibility services (global key hooks)
 - **Set the service flags in code as well as in the XML config.** *Why:* the OEM build doesn't
@@ -112,6 +120,25 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
     position. *Why:* the listener's list is newest-first and the event store is oldest-first;
     code shared between them showed the oldest message.
 
+## Opening the app
+- **A launcher tap resumes whatever screen was last open.** *Why:* the existing task is brought
+  forward and no new intent is delivered, so `onNewIntent` doesn't run. Seen on the E4610.
+- **If the app should always open on its home screen, decide in `onResume`.** Go home only when
+  the user left the app themselves (`onUserLeaveHint`: Home or End) and came back, and not when:
+  - returning from a screen your app opened (a picker, a settings page, a share sheet). Override
+    `startActivityForResult(intent, requestCode, options)` to mark it: every launch goes through
+    it, including fragment and `ActivityResult` launches;
+  - the screen was off when the activity stopped (`PowerManager.isInteractive` is false in
+    `onStop`). *Why:* closing the flip stops the activity too;
+  - a notification opened the app (its extras arrive in `onNewIntent`, before `onResume`);
+  - a call is on screen.
+- **After process death, ignore the launch intent's extras.** *Why:* with saved state, `intent`
+  is the one the activity was first started with, so an old notification tap would reopen its
+  screen.
+- **Tell an in-process recreate from a restart after process death with a static flag.**
+  *Why:* both arrive with `savedInstanceState`; a theme change should keep its screen, a restart
+  should go home.
+
 ## Resolving apps
 - **Treat a `resolveActivity()` result in package `android` as unresolved.**
   *Why:* when several apps handle an intent and none is the default, it returns Android's
@@ -132,6 +159,45 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - Every post needs a duration, or the screen stays on.
   - Nothing persists.
   - Wrap all of it in `try/catch (Throwable)`.
+- **The message card template (`0x010900af`, `k_sublcd_template_5`) draws only an icon and one
+  line of text.** Use `setIcon(resId)` and `setText(...)`. These are *not* drawn:
+  - `setText2` and `setTitle`;
+  - a second line after `"\n"` in `setText` (only the first line shows);
+  - `setRemoteViews(...)`: the cover stays blank (status bar only) whatever the views or
+    colours, with or without `setFullScreen(true)`.
+
+  *Why:* each was tried on the DuraXV (MatChat). Don't spend another round on them.
+- **The icon is a resource id only, and should be square.**
+  - A runtime `Bitmap` or `Icon`, handed to any extender setter or to
+    `Notification.Builder.setLargeIcon`, is ignored.
+  - The slot is square and scales the image to fit, so a wide image draws small. Of 24 px
+    `drawable-mdpi`, 48 px and 96 px `drawable-nodpi`, **96×96 `drawable-nodpi` drew best**.
+  - Black on transparent reads well. App images work: that's how TurboText shows its own
+    message symbol.
+- **Measure how many characters fit beside the icon** with a still "ruler" card
+  (`0123456789ABCDEFGHIJ`). *Why:* about 14 fit beside a small icon but only 9 beside a 96 px
+  one; frames wider than that lose their ends.
+- **There's no marquee, so scroll by reposting.** Post the same card id every ~400 ms with a
+  sliding window of the text:
+  - hold the start and the end for a few frames;
+  - never wrap the end back into the start (it reads as broken text);
+  - run whole passes only, and stretch the card's duration to fit, so it never stops partway
+    through the message;
+  - moving 2 characters per step reads well.
+- **To re-show a card when the cover turns on**, register
+  `SubLcdManager.registerCallback(ISubLcdCallback)`. It calls `onScreenStateChanged(1)` when the
+  flip closes or an outside button wakes the cover.
+  - Extending `ISubLcdCallback.Stub` needs a compile-only stub of the AIDL interface.
+  - `ACTION_SCREEN_OFF` (flip closed) is a fallback.
+  - Debounce it: your own post also wakes the cover, so an undebounced re-show loops.
+- **Never call `SubLcdManager.notifyIconToAnnunciatorTray`.** *Why:* it crashed SystemUI on the
+  DuraXV.
+- **When testing card variants, give each test its own card id.** *Why:* a blank
+  `setRemoteViews` card blanked the next card posted on the same id, which made a working
+  approach look broken.
+- **Ask the user whether a card should show the time.** The card covers the outer display's own
+  clock while it shows. If they want it, put the time at the front of the one text line, for
+  example `1:05 PM · Ann: hi`.
 - **Notification LED:** enable it on the channel, plus `setLights(BLUE, 1, 0)`.
   Notification IDs must match the IDs you cancel, or icons stay forever.
 - **Incoming calls over a closed flip:** use `USE_FULL_SCREEN_INTENT` + `setFullScreenIntent`.

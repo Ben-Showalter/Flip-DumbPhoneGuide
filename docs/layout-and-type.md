@@ -36,15 +36,32 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
 - **Apply it again in `onResume()`, in `onWindowFocusChanged(true)`, once more through
   `decor.post {}`, and from an `OnSystemUiVisibilityChangeListener`.** *Why:* the decor isn't
   attached yet early in a launch, and dialogs and focus changes bring the bar back.
-- **Leave the system T9 keyboard alone when it brings the bar back while typing** (for example
-  in a town-search field). *Why:* the keyboard uses the bar for its word labels. The bar hides
-  again when focus returns to your window.
+- **Show the bar while a text field has focus, and don't hide it again until focus leaves.**
+  - Skip hiding, and skip the re-hide listener, while `currentFocus is EditText`.
+  - Watch focus with a `ViewTreeObserver.OnGlobalFocusChangeListener`: show the bar when focus
+    moves into a text field, hide it when focus moves out.
+  - *Why:* the system T9 keyboard shows its word and mode labels in that bar. The re-hide
+    listener fought it and took the labels away while the user typed (MatChat). This replaces
+    the earlier advice to just let the keyboard bring the bar back.
 - **Don't draw your window under the bar.** Let the content grow into the freed space.
   *Why:* if a ROM refuses to hide the bar, your own bar then sits above it rather than behind it.
 - **On a framework theme (`Theme.DeviceDefault`), check for a leftover strip.** *Why:* some
   vendor builds of that theme keep drawing a bottom strip after a hide that looks successful.
   AppCompat themes don't.
 - *Source:* the same approach the vela-dpad maps app uses, through its Yapchik softkey library.
+
+## Icons
+- **Launcher icon: a transparent background, with the shape filling about 85% of the square.**
+  *Why:* a small shape on a dark square read as tiny at launcher size.
+- **Centre the main shape, not its whole outline.** For a speech bubble, put the body in the
+  middle and let the tail hang below. *Why:* centring the whole outline, tail included, pushes
+  the body up so it looks off-centre.
+- **To cut a letter out of a vector icon, add it as a second sub-path and set
+  `android:fillType="evenOdd"`** (API 24+). The letter becomes a hole the background shows
+  through. The outer path must be one outline (body and tail together), or the overlap becomes
+  a hole too.
+- **Generate the outer-display icon from the same geometry with a small script** (a 96×96
+  `drawable-nodpi` PNG, see [platform.md](platform.md)), so the two stay one shape.
 
 ## Type sizes
 

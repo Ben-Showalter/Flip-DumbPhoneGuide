@@ -22,6 +22,10 @@ because the obvious approach broke on the device.
   - **Right soft key** (`KEYCODE_SOFT_RIGHT`) opens **Options/Settings**. On a sub-screen it
     can open that screen's own options, for example a map legend.
   - Also accept `KEYCODE_MENU` as Options. Some devices send MENU for a soft key.
+  - **Consume the whole MENU press** (DOWN, UP and repeats) in `dispatchKeyEvent`. AppCompat
+    opens its own options panel on MENU UP, covering yours (Sonim XP3800).
+  - Optional: pick the Options side from the keys the phone sends. MENU moves the label left,
+    a right soft key keeps it right; remember it, and once MENU is seen keep it left.
 - **Put the key map in one shared base activity** (see `templates/FlipBaseActivity.kt`), not in
   each screen. Screens override hooks such as `onPrimaryKey()`.
 - **Show soft-key labels** in a bottom bar matching the physical keys. Labels must be
@@ -96,6 +100,9 @@ because the obvious approach broke on the device.
 - **Give every screen a clear starting focus** with `post { row.requestFocus() }`. Only request it
   when nothing has focus yet, or you will pull focus away while the user scrolls.
 - **Don't wrap at the ends of lists.** Wrapping is confusing on a tiny screen.
+- **Chat lists follow the bottom.** `stackFromEnd` only places content on the first layout, so
+  scroll to the newest row after each list update and when rows grow, unless the user has
+  scrolled up. Sending always follows.
 - **When rows are taller than the screen, scroll in small steps** (about ¾ inch, 120dp) before
   moving focus to the next row. Snap to a whole row when scrolling stops.
 - **Menus are `AlertDialog.Builder.setItems(...)`.** They work with the D-pad as is. Never ship a
@@ -117,8 +124,9 @@ because the obvious approach broke on the device.
   Option (b) avoids the E4811 `InputMethodManager` "getShwoingNowFlag" exception loop, which drops
   soft-key presses. Don't half-do it: with no input-method session you also have to draw the cursor
   yourself.
-- **The system T9 keyboard can swallow `KEYCODE_SOFT_RIGHT`** while a text field is focused.
-  Screens with text entry need another route to Options, such as the left soft-key menu.
+- **The system T9 keyboard can swallow `KEYCODE_SOFT_RIGHT`** while a text field is focused,
+  and on Kyocera it uses the left soft key for its T9/abc/123 menu. Screens with text entry
+  need another route to Options: a focusable "More options…" row that opens the menu with OK.
 - **T9 conventions for a custom T9:**
 
   | Key | Behaviour |
@@ -143,7 +151,15 @@ because the obvious approach broke on the device.
 - **Hide the system soft-key label bar** (the white bar the phone draws at the bottom) on every
   screen, and draw your own labelled bar instead. It is the system navigation bar. Use
   `templates/SystemBars.kt` from `onResume()` and `onWindowFocusChanged(true)`. Don't offer a
-  setting to show it again. The system T9 keyboard brings it back while typing, which is fine.
+  setting to show it again. **Show it while a text field has focus** (the T9 keyboard's labels
+  live there) and hide it when focus leaves.
+- **Launcher icon:** transparent background, the shape filling about 85% of the square, its
+  main body centred. Cut a letter out with a second path and `fillType="evenOdd"`.
+- **Outer display (Kyocera sub-LCD):** the message card draws an icon and **one line** of text
+  only. Use a square 96×96 `drawable-nodpi` icon (resource id only), and scroll long text by
+  reposting the same card id. `setText2`, `setTitle`, `"\n"` and `setRemoteViews` don't
+  draw. Never call `notifyIconToAnnunciatorTray`. Details in
+  [docs/platform.md](docs/platform.md#outer-display-and-led-kyocera).
 - **Bold doesn't render with the stock font.** Use `paint.isFakeBoldText = true`.
 - **Some glyphs don't render with the stock font.** ⏯ and ⏸ show as boxes; ■ and ▶ are fine.
   Keep emoji to a curated set.
@@ -192,7 +208,15 @@ because the obvious approach broke on the device.
   active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
 - **`resolveActivity()` returns Android's chooser (package `android`)** when several apps match
   and none is default. Treat that as unresolved.
+- **For Quick Settings under your own launcher, open
+  `jp.kyocera.settings.nfp/.core.Settings$QuickSettingsActivity`**
+  (action `jp.kyocera.settings.programmablekey.action.SHORTCUTS`). Kyocera Home's copy can't open
+  Airplane mode, Bluetooth or Hotspot on the E4810/E4811 unless Kyocera Home is the default.
 - **Ask for missing access at startup, one item at a time**, with a toast giving the D-pad path.
+- **A launcher tap resumes the last screen** (no new intent arrives). To always open on home,
+  decide in `onResume`: go home after `onUserLeaveHint`, but not when returning from a screen
+  your app opened, after the flip closed (screen off at `onStop`), from a notification, or
+  during a call.
 
 → Details: [docs/platform.md](docs/platform.md)
 
@@ -240,6 +264,8 @@ devices: [docs/devices.md](docs/devices.md)
 - [ ] Refresh throttle and cached last result
 - [ ] README: device tested, sideload steps, key map table
 - [ ] Tested on a 240×320 mdpi emulator with touch off, then on the real phone
+- [ ] If the app posts to the outer display: ask the user whether cards should show the time
+      (a card covers the phone's own clock)
 
 ## Conventions decided here
 - **Options goes on the right soft key.** Some flip-phone apps put Options on the left and Back
@@ -247,6 +273,7 @@ devices: [docs/devices.md](docs/devices.md)
   reached on a given screen (see the T9 note in §3).
 - **Text entry:** choose the system T9 or a custom T9 per app, as described in §3. Never mix both
   approaches in one field.
+- **Zoom keys: `#` zooms in, `*` zooms out**, in image viewers and on maps alike.
 
 ## Keeping this guide alive
 When you find a new device quirk, keycode or workaround, **add it here in the same change**:
