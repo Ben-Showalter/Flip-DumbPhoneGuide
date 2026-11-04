@@ -139,6 +139,10 @@ because the obvious approach broke on the device.
   Show the current mode in the left soft-key label.
 - **Never make the user type an API key.** Read it from a text file in storage, or accept it in
   an SMS from a trusted number.
+- **For settings with secrets (server, account, password, key), offer a setup code:** a QR code
+  or link made on a computer with the offline page in `templates/setup-code/`. The app scans or
+  pastes it, shows the decoded settings, and saves nothing until the user confirms. Format
+  `<scheme>:add?v=1&key=value…`, parsed in one place, `v=1` accepted forever.
 
 → Details: [docs/text-input.md](docs/text-input.md)
 

@@ -72,3 +72,43 @@ Template: [`templates/NoImeEditText.kt`](../templates/NoImeEditText.kt).
     folder on resume, and tell the user it may only appear after a reboot.
   - Or accept an SMS from a trusted number, `<APP>_SETUP:<base64 key>`, through a receiver
     protected by `BROADCAST_SMS`.
+
+## Setup codes (QR code or link)
+
+First designed for BusyCall (a SIP app with several accounts per phone). The page itself is
+tested in a browser; **the phone side (camera scanning, saving to Download, moving the file
+off the phone) isn't confirmed on hardware yet.** Update this section when it is.
+
+- **Make the code on a computer with `templates/setup-code/`**: one offline HTML file, edited
+  per app through a `CONFIG` block. It shows a QR code and a link, and can copy, save or print.
+  *Why:* a server name plus a password is dozens of T9 presses with no room for typos, and the
+  person setting phones up usually has a computer.
+- **Format: `<scheme>:add?v=1&key=value&…`, every value URL-encoded, empty fields left out.**
+  Parse it in **one** place, and keep accepting `v=1` after any change. *Why:* the same text
+  works as a link, as a QR code and pasted from the clipboard, and printed codes stay in use for
+  years.
+- **The page works offline and sends nothing anywhere.** The QR library is inlined; the page
+  keeps nothing after it closes and warns that the code contains a secret. *Why:* it handles
+  passwords, and admins can trust a file they can open with the network unplugged.
+- **In the app, offer three ways in: Type it in, Paste setup link, Scan QR setup code.**
+  *Why:* not every phone has a usable camera, and some users get the link by text or email.
+- **Show the decoded settings with the password hidden, and save only on "Save".** *Why:* a
+  wrong or old code shouldn't silently replace working settings.
+- **Ask "Do you have a QR setup code ready?" before opening the camera.** "No, help me set it
+  up" explains how to make one. *Why:* otherwise the user lands in a camera view with nothing
+  to point it at.
+- **Ship the page inside the app** (`assets/`) with a **Save setup page to phone** button that
+  writes it to the public Download folder, and tell the user to move it to a computer **over
+  USB, Bluetooth or SD card**, open it and fill it in. Offer "Save to SD card" and "Send by
+  Bluetooth" (`ACTION_SEND` with a `FileProvider` URI) in Options. *Why:* the user may have no
+  admin, no website and no other way to get the file. Saving: `MediaStore.Downloads` on API 29+
+  (no permission); below that `WRITE_EXTERNAL_STORAGE` with `maxSdkVersion="28"`. Replace an
+  existing file of the same name so the on-screen path stays true.
+- **Decode QR codes with ZXing core (Apache-2.0)** in your own camera screen. Never Google ML
+  Kit (needs Play services) or a third-party scanner app. Reach the scanner from a menu item:
+  the camera key is swallowed by the OS (see [keys.md](keys.md)).
+- **Clear the clipboard after reading a pasted code, and never log the code or any field from
+  it.**
+- **Flip-phone message apps often only make `http(s)` links tappable,** so a `<scheme>:` link
+  usually has to be copied and pasted. If tapping matters, host the same page and also produce
+  `https://<host>/<app>#add?…`: everything after `#` never reaches the web server.

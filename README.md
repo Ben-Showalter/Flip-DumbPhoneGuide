@@ -30,7 +30,7 @@ Or clone this repo next to the app's repo.
 | `docs/distribution.md` | Sideloading, releases, signing, README expectations |
 | `docs/testing.md` | QVGA emulator, unknown-key toast, on-device testing |
 | `docs/devices.md` | Known phones and their quirks |
-| `templates/` | `FlipBaseActivity.kt`, `SystemBars.kt` (hides the system soft-key bar), `list_row_selector.xml`, `NoImeEditText.kt`, manifest snippets |
+| `templates/` | `FlipBaseActivity.kt`, `SystemBars.kt` (hides the system soft-key bar), `list_row_selector.xml`, `NoImeEditText.kt`, manifest snippets, `setup-code/` (offline QR-code/link generator for app settings) |
 
 ## Contributing
 When you find a new quirk, add a one-line rule to `AGENTS.md`. Add the full entry, in the
