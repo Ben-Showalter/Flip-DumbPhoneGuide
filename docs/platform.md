@@ -119,6 +119,16 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - Store the events in arrival order and pick the newest by `postTime`, never by list
     position. *Why:* the listener's list is newest-first and the event store is oldest-first;
     code shared between them showed the oldest message.
+- **Dismissing by "the user left the app": opening the flip onto an app fires no
+  `TYPE_WINDOW_STATE_CHANGED`.** The app that was left open just comes back on screen, so
+  window events alone never say it's in front again. Also listen for `SCREEN_ON` (with the
+  keyguard down) and `USER_PRESENT`, and treat the app in front then as seen. *Why:* a
+  launcher's banner stuck after closing the flip with the app open.
+- **Register that receiver `RECEIVER_EXPORTED`, not `RECEIVER_NOT_EXPORTED`.** *Why:* below
+  Android 13, `ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)` guards the receiver
+  with an app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. `USER_PRESENT` is sent by
+  SystemUI (an app uid), so logcat shows "Permission Denial ... USER_PRESENT ... requires
+  <pkg>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" and the unlock never arrives.
 
 ## Opening the app
 - **A launcher tap resumes whatever screen was last open.** *Why:* the existing task is brought

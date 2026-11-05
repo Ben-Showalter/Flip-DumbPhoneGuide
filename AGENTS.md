@@ -206,6 +206,11 @@ because the obvious approach broke on the device.
 - **Notification Access doesn't work on the E4810/E4811 (Android 9+).** It looks granted but
   never binds. Fall back to an accessibility service's notification events; they have no
   active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
+- **Register receivers for platform broadcasts (`SCREEN_ON`, `USER_PRESENT`) as
+  `RECEIVER_EXPORTED`.** Below Android 13, AndroidX's `RECEIVER_NOT_EXPORTED` blocks
+  `USER_PRESENT`, which SystemUI sends from an app uid.
+- **Opening the flip onto an app fires no window event.** To know what's on screen after an
+  unlock, listen for `USER_PRESENT` too, not just accessibility window changes.
 - **`resolveActivity()` returns Android's chooser (package `android`)** when several apps match
   and none is default. Treat that as unresolved.
 - **For Quick Settings under your own launcher, open
