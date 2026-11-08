@@ -128,7 +128,14 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   Android 13, `ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)` guards the receiver
   with an app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. `USER_PRESENT` is sent by
   SystemUI (an app uid), so logcat shows "Permission Denial ... USER_PRESENT ... requires
-  <pkg>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" and the unlock never arrives.
+  <pkg>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" and the unlock never arrives. The same goes
+  for a clock's `TIME_TICK`/`TIME_SET`/`TIMEZONE_CHANGED` receiver: Settings sends the
+  12/24-hour change.
+- **A clock that lives for days (a launcher's Home) must build its `SimpleDateFormat`s at each
+  refresh.** *Why:* a `SimpleDateFormat` keeps the time zone and locale it was created with.
+  Created once in `onCreate`, Flip Launcher's clock stayed on the old zone after a time-zone
+  change until the phone restarted, although the time broadcasts arrived. Follow
+  `DateFormat.is24HourFormat()` and use `getBestDateTimePattern` for the locale's own style.
 
 ## Opening the app
 - **A launcher tap resumes whatever screen was last open.** *Why:* the existing task is brought
