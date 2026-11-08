@@ -28,6 +28,14 @@ The Kyocera models in use run Android 7, 9 and 10, all confirmed on real devices
 - Speed Dial screen: `com.android.dialer/.speeddial.SpeedDialActivity` (E4610) or
   `.app.speeddial.SpeedDialActivity`. On the E4610 its entries aren't in `content://speed_dial`,
   so apps can't read them.
+- Shortcut-key (programmable keys) settings on the E4810/E4811:
+  `jp.kyocera.customizekey/.settings.ProgrammableKeysSettingsActivity`.
+- Kyocera Settings (`jp.kyocera.settings.nfp`) shows many pages, Wallpaper among them, in one
+  container activity, `.core.SubSettings`; tell them apart by the window title. Its sound
+  pickers are `.sound.PresetRingtonePickerActivity` (action
+  `com.android.settings.PRESET_RINGTONE_PICKER`), which appears as an `android.app.Dialog` window.
+- Speed Dial screen on the E4810/E4811: `com.android.dialer/.app.speeddial.SpeedDialActivity`
+  (its `content://speed_dial` data is readable there, unlike the E4610's).
 - Outer-button settings: `com.android.settings/.afp.PttSettings`
   (`kyocera.intent.action.PTT_SETTINGS`); only applies under Kyocera Home.
 
