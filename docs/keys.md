@@ -101,6 +101,11 @@ it here.
 - **On map screens:** `*` zoom out, `#` zoom in, `5` re-center.
 - **Digits select presets; `*` cycles a mode.**
 - **Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.**
+- **Launchers: hold `#` toggles Do Not Disturb**, as the stock Kyocera Home does; a tap still
+  opens the dialer with "#". Use `NotificationManager.setInterruptionFilter` (PRIORITY on,
+  ALL off). *Why:* users expect the stock shortcut. It needs `ACCESS_NOTIFICATION_POLICY` plus
+  the user's grant in the "Do Not Disturb access" list (Android 6+), a separate list from
+  Notification Access; open it with `ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS` when missing.
 - **Digits that open the dialer act on key UP.**
   *Why:* if you open it on DOWN, the UP reaches the dialer and the first digit is typed twice.
 - **Long press: time the hold yourself.** Post a delayed runnable on the first DOWN
