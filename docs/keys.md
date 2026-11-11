@@ -172,9 +172,14 @@ it here.
   Override `onMediaButtonEvent`.
 - **On Android 7 set `FLAG_HANDLES_MEDIA_BUTTONS`** (deprecated, a no-op on 26+).
   *Why:* without it the session receives no media buttons on the E4610.
-- **For text-to-speech, also catch the buttons in an accessibility service that filters key
-  events** (see [platform.md](platform.md)). *Why:* on Android 8+ media buttons go to the app
-  that last played audio, and TTS audio is played by the speech engine's process, so your
-  session may never be chosen.
-- **To let any button stop a readout,** consume the stopping press (DOWN and UP) and let volume
-  keys through so the user can still adjust the volume.
+- **For text-to-speech, render with `TextToSpeech.synthesizeToFile` and play the file from your
+  own process (`MediaPlayer`, `USAGE_MEDIA`).** *Why:* on Android 8+ media buttons go to the
+  session of the app actually playing audio. Spoken with `tts.speak`, the audio belongs to the
+  speech engine's process, so your session is never chosen. An accessibility service that
+  filters key events doesn't help: Bluetooth media buttons never pass through it (Flip
+  Launcher's headset button didn't stop its readout until it played the audio itself).
+- **To let any phone button stop a readout,** stop on the key's DOWN in an accessibility key
+  filter (and your own `dispatchKeyEvent`) but don't consume it, so the key still does its
+  normal job; let volume keys through without stopping, so the user can still adjust the
+  volume. *Why:* users expect the press to work as well; swallowing it made every stop cost an
+  extra press.

@@ -72,8 +72,9 @@ because the obvious approach broke on the device.
   long it's held, so they can't have a long press. Act on them only while your window has focus,
   the screen is on and the keyguard is down, so presses in a pocket do nothing.
 - **Bluetooth headset buttons send `KEYCODE_MEDIA_PLAY_PAUSE` or `KEYCODE_HEADSETHOOK`**, not
-  PAUSE. To catch them reliably while text-to-speech is playing, use an accessibility service
-  that filters key events (§5).
+  PAUSE. They go to the media session of the app **playing** audio, so for text-to-speech render
+  with `synthesizeToFile` and play it yourself (`MediaPlayer`); an accessibility key filter
+  doesn't see them.
 - **Avoid these keys:**
   - **Camera key:** the OS swallows it.
   - **Volume Up:** it opens a volume popup that steals window focus. You *can* reuse volume keys
