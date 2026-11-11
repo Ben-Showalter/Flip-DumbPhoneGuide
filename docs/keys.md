@@ -101,11 +101,12 @@ it here.
 - **On map screens:** `*` zoom out, `#` zoom in, `5` re-center.
 - **Digits select presets; `*` cycles a mode.**
 - **Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.**
-- **Launchers: hold `#` toggles Do Not Disturb**, as the stock Kyocera Home does; a tap still
-  opens the dialer with "#". Use `NotificationManager.setInterruptionFilter` (PRIORITY on,
-  ALL off). *Why:* users expect the stock shortcut. It needs `ACCESS_NOTIFICATION_POLICY` plus
-  the user's grant in the "Do Not Disturb access" list (Android 6+), a separate list from
-  Notification Access; open it with `ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS` when missing.
+- **Launchers: hold `#` toggles ring/vibrate**, as the stock Kyocera Home does; a tap still
+  opens the dialer with "#". Switch `AudioManager.ringerMode` between `RINGER_MODE_NORMAL` and
+  `RINGER_MODE_VIBRATE`, with a toast ("Phone set to Vibrate only"). *Why:* that's what the
+  stock shortcut does (its logcat: `internal_ringer_mode_changed vibrate`), not Do Not Disturb.
+  Normal <-> vibrate needs no permission; Do Not Disturb would need the "Do Not Disturb access"
+  grant, and that list stays empty for sideloaded apps on the E4810/E4811.
 - **Digits that open the dialer act on key UP.**
   *Why:* if you open it on DOWN, the UP reaches the dialer and the first digit is typed twice.
 - **Long press: time the hold yourself.** Post a delayed runnable on the first DOWN

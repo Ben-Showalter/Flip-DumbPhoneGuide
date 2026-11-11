@@ -50,8 +50,8 @@ because the obvious approach broke on the device.
   - Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.
 - **Repeats:** run one-shot actions only when `event.repeatCount == 0`. Let movement keys
   (scroll, pan) repeat.
-- **Launchers: hold `#` toggles Do Not Disturb** (the stock Kyocera Home shortcut). It needs
-  the user's Do Not Disturb access; see [docs/keys.md](docs/keys.md).
+- **Launchers: hold `#` toggles ring/vibrate** (the stock Kyocera Home shortcut, not Do Not
+  Disturb). It needs no permission; see [docs/keys.md](docs/keys.md).
 - **Hold actions: time the hold yourself.** Post a delayed runnable on the first DOWN, cancel
   it on UP, and swallow the UP once it has fired. Don't trust `isLongPress` on Kyocera keypads:
   it can fire both the tap and the hold for one press. Some presses also send a spurious extra
