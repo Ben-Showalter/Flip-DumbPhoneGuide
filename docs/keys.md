@@ -109,6 +109,17 @@ it here.
   grant, and that list stays empty for sideloaded apps on the E4810/E4811.
 - **Digits that open the dialer act on key UP.**
   *Why:* if you open it on DOWN, the UP reaches the dialer and the first digit is typed twice.
+- **Typing a number from Home: keep every digit and reopen the dialer with the whole number.**
+  Collect digits typed on Home in a buffer (cleared in `onResume`). On each digit, open
+  `ACTION_DIAL` with `tel:<whole buffer>`. In `onPause`, send any digit still waiting out its
+  tap debounce, rather than cancelling it.
+  *Why:* the dialer takes a few hundred ms to come up. Keys typed meanwhile still reach Home, so
+  opening the dialer with only the latest digit lost digits for a fast typist. Clearing pending
+  callbacks in `onPause` dropped the digits typed just after the first one.
+- **Don't cancel a pending same-digit tap on every re-press.** Only a re-press within about
+  60ms of the release is the keypad splitting one hold in two; anything later is a real second
+  press ("55").
+  *Why:* cancelling on any re-press merged fast doubles into one digit.
 - **Long press: time the hold yourself.** Post a delayed runnable on the first DOWN
   (`repeatCount == 0`), cancel it on UP, and when it has fired, swallow the UP so it doesn't
   also count as a tap. Comparing `event.eventTime - event.downTime >= HOLD_MS` on repeat events

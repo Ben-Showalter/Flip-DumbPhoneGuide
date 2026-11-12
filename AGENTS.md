@@ -63,6 +63,9 @@ because the obvious approach broke on the device.
   this screen fires an action here.
 - **When a key launches another app** (for example the dialer), launch it on key **UP**.
   Otherwise the UP reaches that app and types a second digit.
+- **Typing a number from Home: buffer the digits and reopen the dialer with the whole number**
+  on each one. Keys typed while the dialer is opening still reach Home; see
+  [docs/keys.md](docs/keys.md).
 - **Unhandled CALL/END must reach `super`**, so the phone still dials and hangs up.
   **CALL works well as Send** in compose screens.
 - **Mic/Assistant key** is `KEYCODE_F4` or raw code `287` (the E4610 sends 287 even when an
