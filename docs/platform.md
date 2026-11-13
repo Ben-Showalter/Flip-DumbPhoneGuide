@@ -119,6 +119,19 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - Store the events in arrival order and pick the newest by `postTime`, never by list
     position. *Why:* the listener's list is newest-first and the event store is oldest-first;
     code shared between them showed the oldest message.
+- **The event feed only gets notifications that alert.** Silent posts and silent updates
+  never arrive. *Why:* Android sends `TYPE_NOTIFICATION_STATE_CHANGED` from the code that
+  plays a notification's sound or vibration. A messaging app that updates its notification
+  silently for a second unread message was never seen again.
+- **Missed calls: watch the call state, not notifications.** Use
+  `TelephonyManager.listen(..., LISTEN_CALL_STATE)` (no permission needed on Android 9/10).
+  RINGING → IDLE without OFFHOOK is a missed call. With `READ_CALL_LOG`, read the newest
+  call-log entry about 1.5 s later: `MISSED_TYPE` names the caller (`CACHED_NAME`/`NUMBER`), and
+  `REJECTED`/blocked means the user declined it. Without it, take the caller from the ringing
+  notification's title. Skip ongoing notifications (`FLAG_ONGOING_EVENT`) in the event feed.
+  *Why:* on the E4810/E4811 the dialer's only event is the ongoing ringing notification
+  (`com.android.dialer`, no category). The missed-call notification is silent, so it never
+  arrives, and with no removals the ringing one lingered as if it were the missed call.
 - **Dismissing by "the user left the app": opening the flip onto an app fires no
   `TYPE_WINDOW_STATE_CHANGED`.** The app that was left open just comes back on screen, so
   window events alone never say it's in front again. Also listen for `SCREEN_ON` (with the

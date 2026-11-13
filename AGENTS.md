@@ -212,6 +212,8 @@ because the obvious approach broke on the device.
 - **Notification Access doesn't work on the E4810/E4811 (Android 9+).** It looks granted but
   never binds. Fall back to an accessibility service's notification events; they have no
   active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
+  They only report notifications that alert, so the silent missed-call one never arrives: spot
+  missed calls from the call state (RINGING → IDLE without OFFHOOK), and skip ongoing ones.
 - **Register receivers for platform broadcasts (`SCREEN_ON`, `USER_PRESENT`, `TIME_SET`) as
   `RECEIVER_EXPORTED`.** Below Android 13, AndroidX's `RECEIVER_NOT_EXPORTED` blocks senders
   that aren't the core system, such as SystemUI's `USER_PRESENT` or Settings' 12/24-hour change.
