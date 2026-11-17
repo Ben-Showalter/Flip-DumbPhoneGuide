@@ -132,6 +132,11 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   *Why:* on the E4810/E4811 the dialer's only event is the ongoing ringing notification
   (`com.android.dialer`, no category). The missed-call notification is silent, so it never
   arrives, and with no removals the ringing one lingered as if it were the missed call.
+  Without `READ_CALL_LOG` there's no caller at all (on Android 9+ the incoming number in
+  `onCallStateChanged` is empty without it), so ask for it.
+- **Don't count `com.android.phone` notifications as calls.** *Why:* it posts network notices
+  such as "No mobile data service - Temporarily turned off by your carrier", which then showed
+  on a launcher's call banner.
 - **Dismissing by "the user left the app": opening the flip onto an app fires no
   `TYPE_WINDOW_STATE_CHANGED`.** The app that was left open just comes back on screen, so
   window events alone never say it's in front again. Also listen for `SCREEN_ON` (with the
