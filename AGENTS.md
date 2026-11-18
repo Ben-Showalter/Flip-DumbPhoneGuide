@@ -152,7 +152,9 @@ because the obvious approach broke on the device.
 - **Design for 240×320 at mdpi.** Some phones are 320×240 landscape. Test at that size.
 - **Font sizes:** body text at least 16sp, labels 14sp, metadata 11sp minimum. Headers 18sp.
 - **One line per label, ellipsized.** Use `minHeight`, not fixed row heights. Give status and
-  message lines a fixed height so the layout doesn't jump.
+  message lines a fixed height so the layout doesn't jump. Where the full text matters (soft-key
+  labels, the highlighted row's subtitle), scroll it with a marquee instead; Android only scrolls
+  a **selected** `TextView`, so select it.
 - **Use a dark background with high contrast**, at least 7:1.
 - **Hide the system soft-key label bar** (the white bar the phone draws at the bottom) on every
   screen, and draw your own labelled bar instead. It is the system navigation bar. Use
