@@ -175,6 +175,13 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   should go home.
 
 ## Resolving apps
+- **Aim `CALL`, `DIAL` and call-log intents at the default dialer.** Read
+  `TelecomManager.defaultDialerPackage` (API 23+), `setPackage` it when `resolveActivity` finds
+  it handles the intent, and send the plain intent otherwise (e.g. `voicemail:`, which only the
+  stock dialer knows). For the call log use `ACTION_VIEW` with type
+  `vnd.android.cursor.dir/calls`. *Why:* with a VoIP dialer installed beside the stock one, a
+  launcher's speed dial (`ACTION_CALL tel:`) opened Android's "which app" chooser every time,
+  and the CALL key's Kyocera-only call-log component didn't open the new dialer's log.
 - **Treat a `resolveActivity()` result in package `android` as unresolved.**
   *Why:* when several apps handle an intent and none is the default, it returns Android's
   chooser, so "the Gallery app" turned out to be the chooser.

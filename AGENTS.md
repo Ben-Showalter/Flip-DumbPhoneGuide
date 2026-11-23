@@ -224,6 +224,9 @@ because the obvious approach broke on the device.
   reboot. Use `DateFormat.is24HourFormat()` for the system 12/24-hour setting.
 - **Opening the flip onto an app fires no window event.** To know what's on screen after an
   unlock, listen for `USER_PRESENT` too, not just accessibility window changes.
+- **Aim `CALL` / `DIAL` / call-log intents at `TelecomManager.defaultDialerPackage`**
+  (`setPackage`, when that app resolves it). With a second phone app installed, a plain
+  `tel:` intent shows a "which app" chooser.
 - **`resolveActivity()` returns Android's chooser (package `android`)** when several apps match
   and none is default. Treat that as unresolved.
 - **For Quick Settings under your own launcher, open
