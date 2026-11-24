@@ -193,6 +193,10 @@ because the obvious approach broke on the device.
   API 31, so use `SmsManager.getDefault()`. Check every API against `minSdk`.
 - **Storage permissions:** put `maxSdkVersion` on the legacy ones, and only check them at
   runtime when `SDK_INT <= P`.
+- **To read a root-level folder (e.g. `Internal storage/<App>/`), set
+  `android:requestLegacyExternalStorage="true"`** for Android 10; `MANAGE_EXTERNAL_STORAGE`
+  only exists on 11+. Without the flag, the E4811 grants storage and still fails every read
+  silently.
 - **OEM Settings deep links to a single app's page don't work.** Open the general list screen
   (`ACTION_ACCESSIBILITY_SETTINGS`, `ACTION_USAGE_ACCESS_SETTINGS`, …) and show a toast with the
   manual path.
@@ -203,6 +207,7 @@ because the obvious approach broke on the device.
     `startActivity()` from the background.
   - After an update adds a capability (such as key filtering), the user must switch the service
     off and on once.
+  - `am force-stop` turns the service off; re-enable it afterwards.
 - **Notification Access doesn't work on the E4810/E4811 (Android 9+).** It looks granted but
   never binds. Fall back to an accessibility service's notification events; they have no
   active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
@@ -244,8 +249,12 @@ because the obvious approach broke on the device.
 - **Show every error on screen in plain language**, with a way to retry. The user has no logcat.
 - **Distribute APKs by sideloading** (ADB, an email attachment, or a USB copy) through
   GitHub Releases. In the README, explain permission toggles as exact D-pad steps.
+- **Also give the adb commands for every permission** the app needs, with the package name
+  written out. Copy from [docs/adb.md](docs/adb.md); never tell users to overwrite
+  `enabled_accessibility_services`.
 
-→ Details: [docs/distribution.md](docs/distribution.md) · [docs/testing.md](docs/testing.md) ·
+→ Details: [docs/distribution.md](docs/distribution.md) · [docs/adb.md](docs/adb.md) ·
+[docs/testing.md](docs/testing.md) ·
 devices: [docs/devices.md](docs/devices.md)
 
 ---
@@ -259,10 +268,11 @@ devices: [docs/devices.md](docs/devices.md)
 - [ ] Back works sensibly on screens reached by a sideways jump
 - [ ] `touchscreen required=false`, `configChanges` for the flip, no `gms` dependency
 - [ ] `minSdk` ≤ 24 and no API calls above it
+- [ ] `requestLegacyExternalStorage="true"` if the app reads a root-level folder
 - [ ] A toast for unhandled keycodes; plain-language errors on screen
 - [ ] Every action fires on UP, only for a press whose DOWN this window saw
 - [ ] Refresh throttle and cached last result
-- [ ] README: device tested, sideload steps, key map table
+- [ ] README: device tested, sideload steps, key map table, adb permission commands
 - [ ] Tested on a 240×320 mdpi emulator with touch off, then on the real phone
 - [ ] If the app posts to the outer display: ask the user whether cards should show the time
       (a card covers the phone's own clock)

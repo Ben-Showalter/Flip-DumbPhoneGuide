@@ -29,6 +29,7 @@ Or clone this repo next to the app's repo.
 | `docs/network-battery.md` | Refresh throttling, caching, threads, Wi-Fi binding, audio |
 | `docs/distribution.md` | Sideloading, releases, signing, README expectations |
 | `docs/testing.md` | QVGA emulator, unknown-key toast, on-device testing |
+| `docs/adb.md` | ADB commands for permissions, special access, Android 10 storage, accessibility, key files, and what their errors mean |
 | `docs/devices.md` | Known phones and their quirks |
 | `templates/` | `FlipBaseActivity.kt`, `SystemBars.kt` (hides the system soft-key bar), `list_row_selector.xml`, `NoImeEditText.kt`, manifest snippets |
 

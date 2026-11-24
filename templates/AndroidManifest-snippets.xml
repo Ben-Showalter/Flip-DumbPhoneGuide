@@ -14,7 +14,12 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
-    <application android:theme="@style/AppTheme">
+    <!-- requestLegacyExternalStorage: Android 10 only. Without it an app targeting 29+ can't
+         read root-level folders (e.g. Internal storage/<App>/api_key.txt) even with storage
+         granted. Ignored on 9 and older and on 11+. -->
+    <application
+        android:theme="@style/AppTheme"
+        android:requestLegacyExternalStorage="true">
 
         <!-- singleTask: a launch from a hardware key / home icon lands here,
              not on whatever screen was left on top.

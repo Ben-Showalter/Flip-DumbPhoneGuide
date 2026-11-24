@@ -20,6 +20,9 @@ Each entry gives the **rule** first, then *why* it exists.
   - list the data sources;
   - include a key-map table;
   - give exact D-pad steps for each permission toggle, such as "select, hit down key, then hit
-    up key, then hit OK".
+    up key, then hit OK";
+  - give the adb command for each permission too, with the package name written out (see
+    [adb.md](adb.md)). *Why:* some toggles can't be reached with the D-pad on every model,
+    and setting up several phones is faster over adb.
 - **Never make the user type a key or secret on the keypad.** Use a text file in storage, or an
   SMS setup message (see [text-input.md](text-input.md)).

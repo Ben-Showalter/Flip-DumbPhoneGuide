@@ -70,5 +70,9 @@ Template: [`templates/NoImeEditText.kt`](../templates/NoImeEditText.kt).
 - **Never make the user type an API key on the keypad.**
   - Read it from a text file such as `Internal storage/<AppName>/api_key.txt`. Create the
     folder on resume, and tell the user it may only appear after a reboot.
+  - Strip a leading UTF-8 BOM (`\uFEFF`) as well as whitespace. *Why:* Windows Notepad can
+    save one, and Kotlin's `trim()` keeps it, so the key is silently wrong.
+  - On Android 10 the app also needs `requestLegacyExternalStorage` to read that folder (see
+    [platform.md](platform.md#manifest)).
   - Or accept an SMS from a trusted number, `<APP>_SETUP:<base64 key>`, through a receiver
     protected by `BROADCAST_SMS`.

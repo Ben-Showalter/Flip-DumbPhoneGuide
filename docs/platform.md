@@ -38,7 +38,14 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - Set `maxSdkVersion` on them.
   - Only check `READ/WRITE_EXTERNAL_STORAGE` at runtime when `SDK_INT <= P`. *Why:* checking
     them on API 29+ fails every time; on an E4811 the app never got past the check.
-  - Use `MANAGE_EXTERNAL_STORAGE` for root-level folders.
+  - For root-level folders, use `MANAGE_EXTERNAL_STORAGE` on Android 11+ **and** set
+    `android:requestLegacyExternalStorage="true"` on `<application>` for Android 10. *Why:*
+    TurboVoice (targetSdk 33) on the E4811 (Android 10) had storage granted, yet couldn't read
+    `/sdcard/Turbo Key/groq_api_key.txt`: Android 10 puts apps targeting 29+ in scoped storage
+    unless they set the flag, and `MANAGE_EXTERNAL_STORAGE` doesn't exist there. The File API
+    failed silently, so the app just reported "no API key". Without a rebuild,
+    `appops set --uid <pkg> LEGACY_STORAGE allow` plus a force-stop fixes it (see
+    [adb.md](adb.md#storage-on-android-10-e4811)).
 - **Declare `MODIFY_AUDIO_SETTINGS` for a Bluetooth headset microphone (SCO).** *Why:* without
   it, `setMode` and `startBluetoothSco` fail silently.
 - **Launchers: use a `<queries>` block for MAIN/LAUNCHER and DIAL rather than
@@ -100,6 +107,11 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   including Bluetooth headset keys, in any app and with the flip closed.
 - **After an update adds a capability to the service, the user must switch it off and on.**
   *Why:* Android grants capabilities such as key filtering only when the service is enabled.
+- **`am force-stop` turns the app's accessibility service off.** Re-enable it afterwards.
+  *Why:* seen on the E4811 after a force-stop used to apply a storage change.
+- **When enabling a service over adb, append to `enabled_accessibility_services`; never
+  replace it.** *Why:* the setting is one colon-separated list for every app, so `settings put`
+  with a single service turns off the others. See [adb.md](adb.md#accessibility-service).
 - **Inserting text into another app:** find the focused editable node across all windows,
   paste via the clipboard (`ACTION_PASTE`), then restore the clipboard. On this OEM an empty
   field reports its hint as its text, so don't rely on `isShowingHintText`.

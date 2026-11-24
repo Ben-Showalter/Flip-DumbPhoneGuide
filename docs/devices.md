@@ -6,7 +6,7 @@ new phones here.
 | Device | Android | Screen | SoC / RAM | Notes |
 |---|---|---|---|---|
 | Kyocera DuraXV Extreme **E4810** | AOSP-based | 2.6″ 240×320 | Snapdragon 215 / 2 GB | Clear key sends `KEYCODE_BACK`. Mic key is `F4`/287. Has an outer display (sub-LCD). Outer buttons are scan codes 763-766. Notification Access never binds (see [platform.md](platform.md)) |
-| Kyocera **E4811** | 10 | 240×320 | Helio A22 | IME exception loop (`getShwoingNowFlag`), so use NoImeEditText. Storage permission bug on API 29+. Notification Access never binds |
+| Kyocera **E4811** | 10 | 240×320 | Helio A22 | IME exception loop (`getShwoingNowFlag`), so use NoImeEditText. No `MANAGE_EXTERNAL_STORAGE` (Android 10): root-level folders need `requestLegacyExternalStorage`, or the adb `--uid LEGACY_STORAGE` workaround (see [adb.md](adb.md#storage-on-android-10-e4811)). Notification Access never binds |
 | Kyocera **E4610** (DuraXE Epic) | | 2.4″ 320×240 landscape | | Android 7. Slow SMS provider (see [network-battery.md](network-battery.md)). Mic key sends 287 (scan 171) even when an app has focus. Outer buttons are scan codes 172/213/231. `content://speed_dial` stays empty. A launcher tap resumes the last screen (see [platform.md](platform.md#opening-the-app)) |
 | Sonim XP-series (XP5700 tested) | 5.1 (API 22) | small | | Needs `minSdk 22`. The `*` key may arrive as `KEYCODE_NUMPAD_MULTIPLY` |
 | Sonim **XP3800** | | | | The dedicated Options key sends `KEYCODE_MENU`. AppCompat opens its own panel on MENU UP, so consume the whole press (see [keys.md](keys.md)) |
