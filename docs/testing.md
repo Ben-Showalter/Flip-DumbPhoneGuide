@@ -3,7 +3,8 @@
 Each entry gives the **rule** first, then *why* it exists.
 
 ## Emulator
-- **Test on a 240×320 mdpi emulator (the "2.7in QVGA" profile) with touch disabled.** API 24 is
+- **Test on a 240×320 low-density emulator (the "2.7in QVGA" profile; the E4810 is about
+  0.75 density) with touch disabled.** API 24 is
   a good baseline. If you tested only on a phone-sized emulator, you did not test.
 - **Run screenshot tests at 240×320 at both the normal and the largest font size.**
 - **Drive the emulator from the keyboard only.** If a screen needs a tap, it's a bug.
@@ -32,6 +33,22 @@ Each entry gives the **rule** first, then *why* it exists.
   - *Why:* it turned build-and-guess rounds on the outer display into one run per question.
 - **Check every direction-dependent behaviour on the device** (map pan signs, D-pad layout).
   *Why:* the docs were wrong for MapLibre `scrollBy`.
+
+- **Add an in-app key log** (Settings › Key log) of the last ~8 presses: name, keycode, scan code
+  and whether the screen or an accessibility service saw it. Never record which digit was
+  pressed (it may be a PIN). *Why:* owners can report what a key sends without adb.
+- **Add "Save bug report"** that copies the app's own logcat (`logcat --pid … -T <last time>`)
+  into a file in Download, with key events and no message text. Restart the copy with backoff:
+  the stream keeps breaking on this phone ("read: unexpected EOF!").
+- **Android Studio's Logcat shows only the debugged app's process,** so OEM processes are hidden;
+  use the adb CLI unfiltered. In PowerShell `&` backgrounding is a syntax error: run
+  `adb logcat -c`, trigger the problem, then `adb logcat -d`.
+- **Post outer-display test notifications with the flip closed.** Some renderers only react then.
+- **Test the release build on the phone.** Debug builds that skip TLS verification hide
+  certificate problems.
+- **Never test emergency calling by dialling 911.** Arrange a test call through the police
+  non-emergency line, or dial 933 (it reads back the address on file and isn't an emergency
+  number to Android). With no SIM, phones often still reach a tower for emergency calls only.
 
 ## Errors for users
 - **Show every failure on screen in plain language, with the next step.** For example:

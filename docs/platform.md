@@ -9,8 +9,9 @@ Each entry gives the **rule** first, then *why* it exists.
 | `minSdk` | 24 (22 for Android 5.1 Sonims) | Covers Android 7–10 Kyoceras |
 | `targetSdk` | 28–35 | Higher targets mean more runtime permission prompts; test them on the device |
 | `compileSdk` | 34+ | |
-| Java/JVM | 1.8 | |
+| Java/JVM | 1.8 or 17 | 17 works with minSdk 22 |
 | `minifyEnabled` | false | |
+| Lint (targetSdk below Play's minimum) | `lint { disable 'ExpiredTargetSdkVersion' }` | Otherwise `lintVitalRelease` fails the release build; Play's rule doesn't apply to sideloaded apps |
 
 - **Check every API call against `minSdk`.**
 
@@ -38,7 +39,14 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - Set `maxSdkVersion` on them.
   - Only check `READ/WRITE_EXTERNAL_STORAGE` at runtime when `SDK_INT <= P`. *Why:* checking
     them on API 29+ fails every time; on an E4811 the app never got past the check.
-  - Use `MANAGE_EXTERNAL_STORAGE` for root-level folders.
+  - For root-level folders, use `MANAGE_EXTERNAL_STORAGE` on Android 11+ **and** set
+    `android:requestLegacyExternalStorage="true"` on `<application>` for Android 10. *Why:*
+    A voice-typing app (targetSdk 33) on the E4811 (Android 10) had storage granted, yet couldn't read
+    its key file in a root-level folder (`/sdcard/<App>/api_key.txt`): Android 10 puts apps targeting 29+ in scoped storage
+    unless they set the flag, and `MANAGE_EXTERNAL_STORAGE` doesn't exist there. The File API
+    failed silently, so the app just reported "no API key". Without a rebuild,
+    `appops set --uid <pkg> LEGACY_STORAGE allow` plus a force-stop fixes it (see
+    [adb.md](adb.md#storage-on-android-10-e4811)).
 - **Declare `MODIFY_AUDIO_SETTINGS` for a Bluetooth headset microphone (SCO).** *Why:* without
   it, `setMode` and `startBluetoothSco` fail silently.
 - **Launchers: use a `<queries>` block for MAIN/LAUNCHER and DIAL rather than
@@ -77,6 +85,9 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   works under any launcher. Kyocera Home's menu still works on the E4610 (Android 7).
 
 ## Accessibility services (global key hooks)
+- **On the E4811, turning the service on from Settings doesn't work; ADB does.** Send the user
+  to Settings as usual, but when they come back and the service is still off, show the ADB route
+  (the append-safe line in [adb.md](adb.md#accessibility-service)) in the app and in the README.
 - **Set the service flags in code as well as in the XML config.** *Why:* the OEM build doesn't
   reliably honour the XML.
 - **`onKeyEvent` blocks key delivery to every app.** Run expensive checks only for the one key
@@ -97,9 +108,16 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
 - **To filter key events, set `canRequestFilterKeyEvents="true"` and
   `flagRequestFilterKeyEvents` in the XML, and `FLAG_REQUEST_FILTER_KEY_EVENTS` in code.** Keep
   `onKeyEvent` to one volatile read when idle. *Why:* it's the only hook that sees every button,
-  including Bluetooth headset keys, in any app and with the flip closed.
+  including Bluetooth headset keys, in any app. Whether it sees keys **with the flip closed** is
+  unconfirmed: one report says yes, two others saw no keys at all with the flip shut. Check on
+  the phone before building on it.
 - **After an update adds a capability to the service, the user must switch it off and on.**
   *Why:* Android grants capabilities such as key filtering only when the service is enabled.
+- **`am force-stop` turns the app's accessibility service off.** Re-enable it afterwards.
+  *Why:* seen on the E4811 after a force-stop used to apply a storage change.
+- **When enabling a service over adb, append to `enabled_accessibility_services`; never
+  replace it.** *Why:* the setting is one colon-separated list for every app, so `settings put`
+  with a single service turns off the others. See [adb.md](adb.md#accessibility-service).
 - **Inserting text into another app:** find the focused editable node across all windows,
   paste via the clipboard (`ACTION_PASTE`), then restore the clipboard. On this OEM an empty
   field reports its hint as its text, so don't rely on `isShowingHintText`.
@@ -119,6 +137,64 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - Store the events in arrival order and pick the newest by `postTime`, never by list
     position. *Why:* the listener's list is newest-first and the event store is oldest-first;
     code shared between them showed the oldest message.
+- **The event feed only gets notifications that alert.** Silent posts and silent updates
+  never arrive. *Why:* Android sends `TYPE_NOTIFICATION_STATE_CHANGED` from the code that
+  plays a notification's sound or vibration. A messaging app that updates its notification
+  silently for a second unread message was never seen again.
+- **Missed calls: watch the call state, not notifications.** Use
+  `TelephonyManager.listen(..., LISTEN_CALL_STATE)` (no permission needed on Android 9/10).
+  RINGING → IDLE without OFFHOOK is a missed call. With `READ_CALL_LOG`, read the newest
+  call-log entry about 1.5 s later: `MISSED_TYPE` names the caller (`CACHED_NAME`/`NUMBER`), and
+  `REJECTED`/blocked means the user declined it. Without it, take the caller from the ringing
+  notification's title. Skip ongoing notifications (`FLAG_ONGOING_EVENT`) in the event feed.
+  *Why:* on the E4810/E4811 the dialer's only event is the ongoing ringing notification
+  (`com.android.dialer`, no category). The missed-call notification is silent, so it never
+  arrives, and with no removals the ringing one lingered as if it were the missed call.
+  Without `READ_CALL_LOG` there's no caller at all (on Android 9+ the incoming number in
+  `onCallStateChanged` is empty without it), so ask for it.
+- **Don't count `com.android.phone` notifications as calls.** *Why:* it posts network notices
+  such as "No mobile data service - Temporarily turned off by your carrier", which then showed
+  on a launcher's call banner.
+- **Dismissing by "the user left the app": opening the flip onto an app fires no
+  `TYPE_WINDOW_STATE_CHANGED`.** The app that was left open just comes back on screen, so
+  window events alone never say it's in front again. Also listen for `SCREEN_ON` (with the
+  keyguard down) and `USER_PRESENT`, and treat the app in front then as seen. *Why:* a
+  launcher's banner stuck after closing the flip with the app open.
+- **Register that receiver `RECEIVER_EXPORTED`, not `RECEIVER_NOT_EXPORTED`.** *Why:* below
+  Android 13, `ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)` guards the receiver
+  with an app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. `USER_PRESENT` is sent by
+  SystemUI (an app uid), so logcat shows "Permission Denial ... USER_PRESENT ... requires
+  <pkg>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" and the unlock never arrives. The same goes
+  for a clock's `TIME_TICK`/`TIME_SET`/`TIMEZONE_CHANGED` receiver: Settings sends the
+  12/24-hour change.
+- **A clock that lives for days (a launcher's Home) must build its `SimpleDateFormat`s at each
+  refresh.** *Why:* a `SimpleDateFormat` keeps the time zone and locale it was created with.
+  Created once in `onCreate`, a launcher's clock stayed on the old zone after a time-zone
+  change until the phone restarted, although the time broadcasts arrived. Follow
+  `DateFormat.is24HourFormat()` and use `getBestDateTimePattern` for the locale's own style.
+
+- **Post every new message as a new notification with a new id** (cancel the old one, show a
+  count in the subtext). *Why:* updating the same id may be silent, and silent updates never
+  reach the E4810/E4811 accessibility feed, so launchers miss them.
+- **Readers of the accessibility feed must read group summaries.** After the second message,
+  apps alert through the summary and update the message silently. Take the text from
+  MessagingStyle/InboxStyle, and treat a summary plus a message with the same text within ~5s as
+  one.
+- **"App in front" means the app's own Activity windows only.** Ignore popups, dialogs, toasts
+  and the keyboard. *Why:* an outer-screen popup fired a window event just before its
+  notification, so a launcher thought the app was open and dropped every message.
+- **If you play your own alert sound** (silent channel plus your own playback), check Do Not
+  Disturb yourself: interruption filter, the priority sender rule and ringer mode.
+- **Set `lockscreenVisibility = VISIBILITY_PUBLIC` on the channel**, not only per notification.
+- **Name missed callers with `PhoneLookup` on the number first;** the call log's `CACHED_NAME`
+  is often empty. Ask for Contacts after Call Log.
+- **The notification-sound list from `RingtoneManager` includes every ringtone on this phone.**
+  Read MediaStore and keep files in notification folders or flagged as notifications.
+- **To change a channel's importance, create a new channel id and delete the old one.** Android
+  never raises an existing channel's importance.
+- **Reminders:** use `setExactAndAllowWhileIdle`, falling back to `setAndAllowWhileIdle` when
+  API 31+ refuses exact alarms. Re-arm after boot, app update, clock change and time-zone change.
+  Don't post a reminder missed by more than ~10 minutes (the phone was off).
 
 ## Opening the app
 - **A launcher tap resumes whatever screen was last open.** *Why:* the existing task is brought
@@ -140,6 +216,13 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   should go home.
 
 ## Resolving apps
+- **Aim `CALL`, `DIAL` and call-log intents at the default dialer.** Read
+  `TelecomManager.defaultDialerPackage` (API 23+), `setPackage` it when `resolveActivity` finds
+  it handles the intent, and send the plain intent otherwise (e.g. `voicemail:`, which only the
+  stock dialer knows). For the call log use `ACTION_VIEW` with type
+  `vnd.android.cursor.dir/calls`. *Why:* with a VoIP dialer installed beside the stock one, a
+  launcher's speed dial (`ACTION_CALL tel:`) opened Android's "which app" chooser every time,
+  and the CALL key's Kyocera-only call-log component didn't open the new dialer's log.
 - **Treat a `resolveActivity()` result in package `android` as unresolved.**
   *Why:* when several apps handle an intent and none is the default, it returns Android's
   chooser, so "the Gallery app" turned out to be the chooser.
@@ -166,13 +249,13 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - `setRemoteViews(...)`: the cover stays blank (status bar only) whatever the views or
     colours, with or without `setFullScreen(true)`.
 
-  *Why:* each was tried on the DuraXV (MatChat). Don't spend another round on them.
+  *Why:* each was tried on the DuraXV. Don't spend another round on them.
 - **The icon is a resource id only, and should be square.**
   - A runtime `Bitmap` or `Icon`, handed to any extender setter or to
     `Notification.Builder.setLargeIcon`, is ignored.
   - The slot is square and scales the image to fit, so a wide image draws small. Of 24 px
     `drawable-mdpi`, 48 px and 96 px `drawable-nodpi`, **96×96 `drawable-nodpi` drew best**.
-  - Black on transparent reads well. App images work: that's how TurboText shows its own
+  - Black on transparent reads well. App images work: that's how a messaging app showed its own
     message symbol.
 - **Measure how many characters fit beside the icon** with a still "ruler" card
   (`0123456789ABCDEFGHIJ`). *Why:* about 14 fit beside a small icon but only 9 beside a 96 px
@@ -201,3 +284,105 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
 - **Notification LED:** enable it on the channel, plus `setLights(BLUE, 1, 0)`.
   Notification IDs must match the IDs you cancel, or icons stay forever.
 - **Incoming calls over a closed flip:** use `USE_FULL_SCREEN_INTENT` + `setFullScreenIntent`.
+  On Android 9 a full-screen intent only shows while the phone is locked or the screen is off,
+  so a calling app must also start its incoming-call activity itself.
+- **The outer display is not an Android `Display`;** only display 0 exists.
+- **Every card keeps the outer display on for its whole duration** (15s here). Treat the
+  duration as a battery cost.
+- **`ISubLcdCallback` doesn't forward outer-display keys,** only on/off. Answer its key callbacks
+  "not handled".
+- **A persistent outer-display badge (InfoSign / `KeyguardStatusView`) is a dead end** for
+  third-party apps: the messaging extra is relabelled to the carrier's app, and the badge
+  broadcast reaches SystemUI but only an allow-list (dialer, carrier messaging, email,
+  voicemail) is drawn. Making it work would need a signed SystemUI.
+- **Untested `SubLcdNotificationExtender` setters:** `setBlinkText/Title`, `setCancelBySideKey`,
+  `setFullScreen`, `setDisplayPerson`, `setInfoSign`. Templates are `k_sublcd_template_1`…`_5`
+  (`0x010900ab`…`0x010900af`).
+- **Treat the outer display as black and white.** Make its icon the monochrome form of the
+  launcher shape, and cut card text to about 120 characters with "…" (40 cut ordinary messages
+  short).
+
+## SMS and MMS
+- **Request `RECEIVE_MMS` and `RECEIVE_WAP_PUSH` at runtime.** Being the default SMS app doesn't
+  grant them. *Why:* without them Android silently drops every picture message, group message
+  and MMS delivery report ("Permission Denial … WAP_PUSH_DELIVER requires RECEIVE_MMS").
+- **Always put your own number in MMS From, and pass the carrier headers from `mms_config` to
+  `sendMultimediaMessage`.** `getLine1Number()` is often empty; fall back to the SIM numbers, then
+  a learned number. On Verizon's network with no `mms_config` headers (some MVNO SIMs), add
+  `X-VzW-MDN` / `x-up-calling-line-id`. *Why:* Verizon refused pictures with 0x84 "sending
+  address unresolved".
+- **Keep your own number out of group threads.** With an empty line number, groups split into
+  two threads. A learned own number must never have sent you anything.
+- **Cap MMS at about 600 KB, and check the m-send-conf Response-Status.** *Why:* bigger messages
+  were accepted and marked sent, then dropped by the recipient's carrier; a refusal showed as
+  Sent because the HTTP exchange succeeded.
+- **Nothing may stay on "Sending" forever.** Texts: a 5-minute watchdog. MMS: retry after 20s and
+  90s, a watchdog 6 minutes after hand-off, up to 3 tries, and a sweep at every start. Results
+  only move a message forward. With no service, queue as "Waiting for signal" and resend on a
+  service-state change with backoff.
+- **Acknowledge downloaded MMS to the carrier** (M-Acknowledge.ind or M-NotifyResp.ind
+  "retrieved"). Otherwise the sender never sees Delivered, and some carriers resend.
+- **Delivery reports:** a later "Expired" (about 5 days on) must not override "Delivered". Match
+  reports across all threads by Message-ID, compared loosely. Text status 1 and 2 mean delivered.
+- **Don't trust the SMS provider's `ContentObserver` on this phone.** Have every receiver that
+  writes a row notify the open screen directly.
+- **Read only the newest messages on each change** (about 30, merged into a cache), and cap a
+  thread's view at its newest ~200 with Load More. *Why:* re-reading a 1,600-message thread took
+  7–19s.
+- **Send bulk SMS one at a time,** waiting for each result plus about 3s. Android asks "send many
+  messages?" after about 30 texts.
+- **To read a provisioning SMS without being the default SMS app,** use the `SMS_RECEIVED`
+  broadcast with `RECEIVE_SMS`. The message still lands in the user's inbox; match the sender
+  loosely (ignore `+1`, dashes and parentheses). Base64 is obfuscation, not security.
+
+## Calls and telephony
+- **API floors for a softphone:** a self-managed `ConnectionService` and AAudio need API 26;
+  `setShowWhenLocked`/`setTurnScreenOn` need 27; `requestDismissKeyguard` needs 26. Android 7
+  phones (E4610) need a call path that skips Telecom, with OpenSL ES audio.
+- **Many of these phones may have no proximity sensor,** so let the in-call screen time out.
+  Unconfirmed.
+- **For END and in-call keys,** see [keys.md](keys.md#end-on-kyocera).
+
+## Camera and QR codes
+- **`ACTION_IMAGE_CAPTURE`:** save the pending output URI in `onSaveInstanceState` (the camera
+  can get your activity destroyed on a 2 GB phone). Process the photo if the file was written,
+  even on `RESULT_CANCELED`, which some OEM cameras return after saving. Grant the camera
+  read/write on the URI, and declare a `<queries>` entry for `IMAGE_CAPTURE` (targetSdk 30+).
+- **In-app QR scanning:** Camera1 at about 640×480, one frame at a time off the main thread,
+  ZXing core (not ML Kit). Keep each code at 600 bytes or less. Wrap autofocus calls (fixed-focus
+  cameras throw), map OK to the light, and hide the scan entry without `FEATURE_CAMERA_ANY`.
+- **Don't send PICK/GET_CONTENT to the Kyocera gallery** (`jp.kyocera.gallery`,
+  `com.android.gallery3d`). It shows an "Open with" chooser and answers with its file browser.
+  Read MediaStore with your own picker. When saving media, sniff the bytes rather than trusting
+  an `image/*` MIME, or it saves as `.bin` and the Gallery hides it.
+
+## Location
+- **On a GPS auto-refresh, replace the saved location only after a move of more than ~1.5 km.**
+  *Why:* saving a new location wipes caches, and GPS jitter would do that every few minutes.
+- **Use the most accurate last-known fix from either provider,** and with no provider enabled
+  show "No location provider enabled - enable GPS or set location manually".
+
+## Other OEM behaviour
+- **To add help over a phone Settings screen,** watch accessibility window events and open your
+  own screen on top with `NEW_TASK|MULTIPLE_TASK|EXCLUDE_FROM_RECENTS` (and `taskAffinity=""`)
+  so Back returns to the phone's screen. Kyocera Settings shows many pages in `.core.SubSettings`,
+  so tell them apart by window title. Log every unmatched screen (class plus title).
+- **Open a package by its launch activity,** not its first drawer entry. *Why:* Kyocera Settings
+  also lists Hotspot as an entry, and the E4610 dialer's call-log entry has an empty label.
+- **An enabled accessibility service keeps the process alive** with no notification. Fall back to
+  a min-importance foreground service whose notification says how to hide it.
+- **Wrap `ClipboardManager.clearPrimaryClip()` in try/catch.** Some OEM builds refuse it.
+- **Draw over other apps:** `ACTION_MANAGE_OVERLAY_PERMISSION` with a `package:` URI doesn't
+  resolve on this OEM. Open `ACTION_MANAGE_DEFAULT_APPS_SETTINGS`, from which the user goes to
+  Special app access → Display over other apps, with a toast giving that path.
+- **Pasting into another app's empty field:** paste a single space first with `ACTION_PASTE` so
+  the hint goes away normally, then remove it if nothing gets inserted. Before acting on a
+  "focused input", check `isEditable` and search every window: `findFocus(FOCUS_INPUT)` can return
+  a focused read-only list item.
+- **Don't use OpenGL map libraries (MapLibre GL) on the E4610.** Its renderer crashed natively
+  (SIGBUS) on the older Adreno driver, and a GL crash can't be caught. Draw raster tiles with
+  Canvas instead (see [network-battery.md](network-battery.md)).
+- **TLS on Android 7–11:** old trust stores rejected some current certificate chains (Google
+  Trust Services); Let's Encrypt worked. Use the platform-default trust manager and allow system
+  and user CAs in `network_security_config`. Debug builds that skip verification hide this, so
+  test the release build on the phone.

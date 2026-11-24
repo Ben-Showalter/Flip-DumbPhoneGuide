@@ -6,21 +6,22 @@ Each entry gives the **rule** first, then *why* it exists.
 
 | Physical key | Keycode(s) delivered | Notes |
 |---|---|---|
-| Left soft key | `KEYCODE_SOFT_LEFT` (some devices: `KEYCODE_MENU`) | House rule: primary action |
-| Right soft key | `KEYCODE_SOFT_RIGHT` | House rule: Options. The system T9 keyboard may swallow it while typing |
+| Left soft key | `KEYCODE_SOFT_LEFT` | House rule: unused unless the app's owner asks for a shortcut |
+| Right soft key | `KEYCODE_SOFT_RIGHT` | House rule: **Options** (Kyocera). The system T9 keyboard may swallow it while typing. On the DuraXV its DOWN can be lost, so only an UP arrives |
+| Menu / Options key (Sonim and others) | `KEYCODE_MENU` | House rule: **Options**, labelled on the left |
 | OK / D-pad center | `KEYCODE_DPAD_CENTER` **or** `KEYCODE_ENTER` | Always match both |
 | D-pad | `KEYCODE_DPAD_UP/DOWN/LEFT/RIGHT` | |
 | Clear | `KEYCODE_BACK` (not DEL) | Treat as backspace in text fields |
 | Back (where separate) | `KEYCODE_BACK` | Never swap it with the soft keys |
 | Call / Send | `KEYCODE_CALL` | Good as "Send"; let it through to `super` when unhandled |
-| End | `KEYCODE_ENDCALL` | Acts as Home; leave it alone |
+| End | `KEYCODE_ENDCALL`, but on Kyocera it may never arrive as that (see [End on Kyocera](#end-on-kyocera)) | Acts as Home; leave it alone outside call screens |
 | Mic / Assistant | `KEYCODE_F4` (134) when an app has focus, raw `287` (`KEYCODE_SPEAKER_IN`, which has no constant) when none does. The E4610 sends 287 (scan 171) even when an app has focus | Match both |
 | Outer SOS | no usable keycode; scan code `763` (E4810) | Match by `scanCode`. Press only, no hold |
 | Outer END | scan code `764` (E4810), `172` (E4610) | Match by `scanCode`. Press only, no hold |
 | Outer Speaker | scan code `765` (E4810), `213` (E4610) | Match by `scanCode`. Press only, no hold |
 | PTT | scan code `766` (E4810), `231` (E4610) | Match by `scanCode`. Press only, no hold |
 | Bluetooth headset button | `KEYCODE_MEDIA_PLAY_PAUSE` or `KEYCODE_HEADSETHOOK` | Rarely `MEDIA_PAUSE`; see below |
-| Camera | swallowed by the OS | Unavailable to apps |
+| Camera | `KEYCODE_F3` (133) on the E4810; `288` on the E4610 (named `KEYCODE_SOFT_LEFT_LOWER` there, so match by `KeyEvent.keyCodeToString`); `KEYCODE_CAMERA` (27) elsewhere | Match all three. Usable by apps (e.g. take a picture while writing) |
 | Volume Up/Down | `KEYCODE_VOLUME_UP/DOWN` | Volume Up opens a popup that steals focus |
 | `*` | `KEYCODE_STAR` or `KEYCODE_NUMPAD_MULTIPLY` (Sonim) | Match both |
 | `#` | `KEYCODE_POUND` | |
@@ -30,25 +31,41 @@ If a key isn't in this table, show its code on screen (see [testing.md](testing.
 it here.
 
 ## Soft keys and Options
-- **Left soft key = the screen's primary action. Right soft key = Options/Settings.**
-  *Why:* when every app works the same way, users don't have to relearn the keys.
+Unless the person asking for the app says otherwise, design every app to work on phones that
+don't have two soft keys.
+
+- **One Options key.** On Kyocera it's the **right soft key**. On Sonim and other phones with a
+  Menu key, it's the **Menu key** (`KEYCODE_MENU`), labelled on the **left**. Both always open
+  Options. *Why:* many keypad phones have only one usable soft key or a dedicated Menu key;
+  a layout that needs two soft keys strands those users.
+- **The other soft key does nothing by default.** Put every action in the Options menu, on OK,
+  on the D-pad or on number keys. Add a second-key shortcut only when the app's owner asks for
+  one, and keep that action in the Options menu too. *Why:* phones with only a Menu key can't
+  press it. For "Refresh", auto-refresh instead (see [network-battery.md](network-battery.md)).
 - **Put the soft-key handling in a shared base activity; each screen overrides hooks.**
   *Why:* the layout stays the same everywhere, and new screens get it for free.
   See `templates/FlipBaseActivity.kt`.
-- **Accept `KEYCODE_MENU` as a soft key.**
-  *Why:* the soft keys don't send `SOFT_LEFT`/`SOFT_RIGHT` on every device.
 - **Consume the whole MENU press in `dispatchKeyEvent`: its DOWN, its UP and its repeats.**
   *Why:* AppCompat opens its own (empty) options panel on MENU UP, covering the menu your DOWN
-  just opened. On a Sonim XP3800, MENU looked like it did nothing. FlipWeather does this too.
-- **Optional: pick the Options side automatically from the keys the phone sends.**
-  - Default: Options on the right soft key.
-  - The first `KEYCODE_MENU` moves the "Options" label to the left; a `KEYCODE_SOFT_RIGHT` keeps
-    it on the right.
-  - Store the result. Once MENU has been seen, keep Options on the left. *Why:* a phone that
-    sends both keys would otherwise flip the layout on every press.
-  - MENU always means Options and BACK always means Back; neither is swapped.
-  - Map the key that triggered the change with the new layout, so the first press already does
-    what its new label says.
+  just opened. On a Sonim XP3800, MENU looked like it did nothing. A plain framework `Activity`
+  doesn't grab MENU at all.
+- **The first Menu press ever asks once which side to show "Options" on:**
+  "Your phone has an Options key. Show the "Options" label on the left side of the screen
+  instead?"
+  - Mark the prompt as seen *before* showing it, so it never repeats.
+  - Yes moves the label, and the Options soft-key mapping, to the left. No leaves it right.
+  - Re-hide the system soft-key bar when the dialog closes.
+- **No "Options key" setting in Settings.** Instead, switch the label back to the right only
+  when a `KEYCODE_SOFT_RIGHT` press is actually seen. *Why:* the phone itself tells you which
+  key it has; a setting is one more thing to get wrong.
+- **The footer shows a single "Options" label** at the end that matches the current side.
+- **Right soft key with no DOWN:** on the DuraXV the OS can swallow the right soft key's DOWN,
+  so only the UP arrives (seen on one screen; may depend on the situation). Treat a DOWN-less
+  UP of `KEYCODE_SOFT_RIGHT` as a tap. For hold-to-act on that key, use tap to start, tap to
+  stop. This is the one exception to "act on an UP only if this window saw its DOWN".
+- **Digit aliases where digits aren't typed:** on screens with no text field or T9 search, `7`
+  can act as the left soft key and `9` as the right. *Why:* some D-pad phones' soft keys send
+  odd codes or none. Drop the aliases while digits are being typed.
 - **Translate raw keycodes into logical keys in one place.**
   *Why:* when a new phone sends different codes, you fix one table.
 - **Never swap or remap BACK along with the soft keys.**
@@ -101,8 +118,29 @@ it here.
 - **On map screens:** `*` zoom out, `#` zoom in, `5` re-center.
 - **Digits select presets; `*` cycles a mode.**
 - **Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.**
+- **Launchers: hold `#` toggles ring/vibrate**, as the stock Kyocera Home does; a tap still
+  opens the dialer with "#". Switch `AudioManager.ringerMode` between `RINGER_MODE_NORMAL` and
+  `RINGER_MODE_VIBRATE`, with a toast ("Phone set to Vibrate only"). *Why:* that's what the
+  stock shortcut does (its logcat: `internal_ringer_mode_changed vibrate`), not Do Not Disturb.
+  Normal <-> vibrate needs no permission; Do Not Disturb would need the "Do Not Disturb access"
+  grant, and that list stays empty for sideloaded apps on the E4810/E4811.
+  Remember the ringer mode before the first hold, and let the next hold restore it (ring at its
+  earlier volume), as stock Kyocera Home does.
+- **Hold OK on a selected row for a second action** (React, Copy…). Time the hold, open the row
+  on release, and only act on an OK whose DOWN arrived in that mode.
 - **Digits that open the dialer act on key UP.**
   *Why:* if you open it on DOWN, the UP reaches the dialer and the first digit is typed twice.
+- **Typing a number from Home: keep every digit and reopen the dialer with the whole number.**
+  Collect digits typed on Home in a buffer (cleared in `onResume`). On each digit, open
+  `ACTION_DIAL` with `tel:<whole buffer>`. In `onPause`, send any digit still waiting out its
+  tap debounce, rather than cancelling it.
+  *Why:* the dialer takes a few hundred ms to come up. Keys typed meanwhile still reach Home, so
+  opening the dialer with only the latest digit lost digits for a fast typist. Clearing pending
+  callbacks in `onPause` dropped the digits typed just after the first one.
+- **Don't cancel a pending same-digit tap on every re-press.** Only a re-press within about
+  60ms of the release is the keypad splitting one hold in two; anything later is a real second
+  press ("55").
+  *Why:* cancelling on any re-press merged fast doubles into one digit.
 - **Long press: time the hold yourself.** Post a delayed runnable on the first DOWN
   (`repeatCount == 0`), cancel it on UP, and when it has fired, swallow the UP so it doesn't
   also count as a tap. Comparing `event.eventTime - event.downTime >= HOLD_MS` on repeat events
@@ -129,21 +167,59 @@ it here.
 - **Cancel T9 hold timers on the next key's DOWN, not just on UP.**
   *Why:* when typing fast, one key's DOWN arrives before the previous key's UP, and stray digits
   appeared ("4hogs").
+- **Accessibility key filters follow the same pairing:** consume the UP of every DOWN you
+  consumed. *Why:* a service that consumed DOWN and passed UP left an orphaned UP ("Cancelling
+  event due to no window focus").
+- **Keep a "known keys" list out of the unknown-key toast:** BACK, CALL, ENDCALL, HOME, POWER,
+  volume, CAMERA, FOCUS, headset buttons, the mic code 287 and the outer-button scan codes.
+  *Why:* otherwise ordinary system keys pop "unhandled key" messages.
 
 ## Other hardware keys
 - **CALL = Send** in compose screens, and **Dial** on a contact list. Unhandled CALL/END fall
   through to `super`.
 - **Mic key:** `setOf(KeyEvent.KEYCODE_F4, 287)`. Start on DOWN with `repeatCount == 0` and stop
   on UP.
+- **The Mic key is the best default for a global hold-to-talk trigger.** Nothing else on the
+  phone reacts to it, so it can be consumed on DOWN with no debounce. A second action can use a
+  double tap (two taps within ~400ms); remember a short first tap and let the second press
+  swallow its own release.
 - **Don't use Volume Up as a global trigger.**
   *Why:* the volume popup takes window focus and the focused text field is lost.
 - **Volume keys can be reused in a full-screen app with no text field**, e.g. for brightness
   steps.
-- **The camera key is unavailable**, so put camera actions in the Options menu.
+- **Never swallow volume keys by accident.** Let them through before any catch-all
+  `else -> return true` in `dispatchKeyEvent`. While your own audio plays, call
+  `setVolumeControlStream(AudioManager.STREAM_MUSIC)` and reset it when playback stops.
+  *Why:* a catch-all consume broke the volume keys.
+- **The camera key reaches apps.** Match `KEYCODE_F3` (133, E4810), the E4610's 288 (by name,
+  `KEYCODE_SOFT_LEFT_LOWER`) and `KEYCODE_CAMERA`. A messaging app used it to take a picture
+  while writing; a launcher let the owner assign it to an app.
 - **Let users choose a trigger key with a full-screen capture Activity, not a Dialog.**
   *Why:* raw key capture in Dialog windows behaves differently across OEM builds.
 - **If two installed apps both hook the same hardware key**, one must ignore it while the other
   is in the foreground.
+- **A key-capture screen leaves Back free to cancel** and captures every other key.
+
+## End on Kyocera
+Unconfirmed on the E4810; first seen on the E4610. **Outside call screens, leave END alone.**
+On a call screen, don't count on `KEYCODE_ENDCALL`. END may instead:
+- arrive as HOME, seen only as `onUserLeaveHint`;
+- arrive as BACK, told apart from Clear by **scan code 107** (`KEY_END`);
+- destroy the window with no key callback at all.
+
+So on a call screen:
+- Hang up in `onUserLeaveHint`, unless your app itself opened something (mark those launches by
+  overriding `startActivityForResult`).
+- As a backstop, hang up in `onDestroy` when your own `finish()` didn't close the screen.
+- Treat scan code 107 as END whatever keycode it arrives with. Never hang up on plain BACK.
+- Always keep an on-screen End action.
+
+## Calls
+- **During a call, send DTMF from the digit keys on DOWN**, never from a text field. *Why:* an
+  in-call screen that sent tones only from a text field couldn't take a voicemail PIN.
+- **Make the D-pad a ring of in-call controls** (▲ Speaker, ◀ Mute, ▶ Hold/Swap, ▼ Call options,
+  OK = End). Claim those keys, DOWN and UP, so focus never moves. Back leaves the screen and
+  never hangs up.
 
 ## Outer buttons (Kyocera)
 - **Identify SOS, outer END, outer Speaker and PTT by `event.scanCode`** (see the table above),
@@ -167,9 +243,14 @@ it here.
   Override `onMediaButtonEvent`.
 - **On Android 7 set `FLAG_HANDLES_MEDIA_BUTTONS`** (deprecated, a no-op on 26+).
   *Why:* without it the session receives no media buttons on the E4610.
-- **For text-to-speech, also catch the buttons in an accessibility service that filters key
-  events** (see [platform.md](platform.md)). *Why:* on Android 8+ media buttons go to the app
-  that last played audio, and TTS audio is played by the speech engine's process, so your
-  session may never be chosen.
-- **To let any button stop a readout,** consume the stopping press (DOWN and UP) and let volume
-  keys through so the user can still adjust the volume.
+- **For text-to-speech, render with `TextToSpeech.synthesizeToFile` and play the file from your
+  own process (`MediaPlayer`, `USAGE_MEDIA`).** *Why:* on Android 8+ media buttons go to the
+  session of the app actually playing audio. Spoken with `tts.speak`, the audio belongs to the
+  speech engine's process, so your session is never chosen. An accessibility service that
+  filters key events doesn't help: Bluetooth media buttons never pass through it (Flip
+  Launcher's headset button didn't stop its readout until it played the audio itself).
+- **To let any phone button stop a readout,** stop on the key's DOWN in an accessibility key
+  filter (and your own `dispatchKeyEvent`) but don't consume it, so the key still does its
+  normal job; let volume keys through without stopping, so the user can still adjust the
+  volume. *Why:* users expect the press to work as well; swallowing it made every stop cost an
+  extra press.

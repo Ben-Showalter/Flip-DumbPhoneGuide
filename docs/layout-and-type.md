@@ -3,8 +3,11 @@
 Each entry gives the **rule** first, then *why* it exists.
 
 ## Size
-- **Design for 240×320 px at mdpi (2.4–2.8″).** Some models are 320×240 landscape (see
+- **Design for 240×320 px (2.4–2.8″).** Some models are 320×240 landscape (see
   [devices.md](devices.md)).
+- **The E4810 runs at about 0.75 density (ldpi), not mdpi.** Size full-screen grids from the
+  real pixel size and snap every edge to whole pixels. *Why:* a grid sized in fixed dp left a
+  gap at the bottom, and a 1dp line at a fractional position disappeared.
 - **Typical screen chrome:** a 24dp title bar, about 270dp of content and a 26dp soft-key bar.
   Hide the system's own soft-key bar (see [below](#system-soft-key-bar)) so only yours shows.
 - **Size grid cells and rail slots from the available pixels, not fixed dp**, and keep
@@ -17,7 +20,7 @@ Each entry gives the **rule** first, then *why* it exists.
   `ACTION_BATTERY_CHANGED` broadcast.
 
 ## System soft-key bar
-Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`.
+Confirmed on a real phone. Starter code: `templates/SystemBars.kt`.
 
 - **Hide the white soft-key label bar the phone draws at the bottom of the screen, on every
   screen.** It is the system *navigation bar*. *Why:* your app's own soft-key bar already shows
@@ -41,7 +44,7 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
   - Watch focus with a `ViewTreeObserver.OnGlobalFocusChangeListener`: show the bar when focus
     moves into a text field, hide it when focus moves out.
   - *Why:* the system T9 keyboard shows its word and mode labels in that bar. The re-hide
-    listener fought it and took the labels away while the user typed (MatChat). This replaces
+    listener fought it and took the labels away while the user typed. This replaces
     the earlier advice to just let the keyboard bring the bar back.
 - **Don't draw your window under the bar.** Let the content grow into the freed space.
   *Why:* if a ROM refuses to hide the bar, your own bar then sits above it rather than behind it.
@@ -63,6 +66,11 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
 - **Generate the outer-display icon from the same geometry with a small script** (a 96×96
   `drawable-nodpi` PNG, see [platform.md](platform.md)), so the two stay one shape.
 
+- **Ship an adaptive icon (API 26+).** *Why:* without one, the Kyocera launcher shrank the
+  legacy icon into its own dark tile, so the app looked much smaller than its neighbours.
+- **Keep thumbnails at the screen's 3:4 shape** (height = width × 4/3). *Why:* a fixed square box
+  cropped every 240×320 wallpaper.
+
 ## Type sizes
 
 | Use | Size |
@@ -74,9 +82,15 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
 | Labels | 14sp |
 | Secondary/status | 13–15sp |
 | Metadata / timestamps | 11sp minimum |
-| Soft-key bar | 15–16sp, fixed height, ignores the app's text-size setting |
+| Soft-key bar | 15–16sp, fixed height. Usually ignores the app's text-size setting; scaling it with that setting (13/16/20sp, bar grows) is an acceptable per-app choice |
 
 - **Keep every label on one line** with `singleLine`/`maxLines=1` and `ellipsize="end"`.
+- **Scroll text that must be read whole instead of cutting it** (`ellipsize="marquee"`,
+  `marqueeRepeatLimit="marquee_forever"`, single line). Do it always for soft-key labels and
+  passive banners, and on the highlighted row only for lists (set `isSelected = hasFocus` in the
+  row's focus listener). *Why:* at 240px wide, "Add from gallery" in a soft-key slot and
+  settings subtitles were cut to "Add from g…". A marquee only runs while the `TextView` is
+  selected (or focused, and list rows' text never is), so without `isSelected` it never moves.
 - **Write short error and status messages that fit one line.**
 - **Offer a text-size setting through theme overlays (Small/Normal/Large) applied before
   `super.onCreate`.** Recreate the activity when the setting changes.
@@ -101,13 +115,24 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
 - **Use `Theme.AppCompat.NoActionBar`, or framework `android:Theme.Material.NoActionBar` when you
   have no AppCompat dependency.** Draw your own header. *Why:* an action bar wastes rows.
 
+- **In a light theme, keep the status bar dark.** *Why:* the phone's status icons are always
+  white and wash out on a light bar. Android 9 has no "follow system" dark mode, so offer an
+  explicit theme setting.
+- **Over a photo, colour small text per spot.** Make a coarse brightness grid (e.g. 24×32) once
+  per image, pick light or dark text where it sits, and add a faint outline.
+
 ## Motion
 - **Animations: at most 150ms, alpha only, no ripples.** Let the user turn them off on slow chips.
+  One accepted exception: a new message at the bottom of a chat may slide up over ~180ms.
   No motion at all also works well: a launcher with every transition and list animator off felt
   faster on these phones.
 - **Animated content:** keep frames few. A radar loop works well with about 7 frames at 500ms.
   Add every frame as its own layer up front and switch each layer's opacity on and off, rather
   than reloading sources. Stop timers in `onPause`.
+
+- **Detect a keypad phone with `resources.configuration.keyboard == KEYBOARD_12KEY`.** Show an
+  on-screen dial pad, and leave the navigation bar visible, only when it's false (touch phones).
+  Unconfirmed on hardware.
 
 ## Toolkit and configuration
 - **Use Views, not Compose.** *Why:* Views have mature D-pad focus handling, and Compose costs
@@ -119,3 +144,4 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
 - **Keep-on display apps:** use `FLAG_KEEP_SCREEN_ON | FLAG_SHOW_WHEN_LOCKED |
   FLAG_DISMISS_KEYGUARD | FLAG_TURN_SCREEN_ON`, so opening the flip comes straight back to the
   app.
+- **A view set to `gone` measures 0×0.** Size image work from a visible parent.

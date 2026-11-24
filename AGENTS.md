@@ -16,20 +16,25 @@ because the obvious approach broke on the device.
 ## House rules
 
 ### 1. Keys and soft keys (most important)
-- **Use the same soft-key layout on every screen:**
-  - **Left soft key** (`KEYCODE_SOFT_LEFT`) runs the screen's **primary action**, such as
-    Refresh or New.
-  - **Right soft key** (`KEYCODE_SOFT_RIGHT`) opens **Options/Settings**. On a sub-screen it
+- **One Options key, on every screen** (unless the person asking for the app says otherwise).
+  Apps must work on phones without two soft keys:
+  - **Kyocera:** Options is the **right soft key** (`KEYCODE_SOFT_RIGHT`). On a sub-screen it
     can open that screen's own options, for example a map legend.
-  - Also accept `KEYCODE_MENU` as Options. Some devices send MENU for a soft key.
+  - **Sonim and other phones with a Menu key:** Options is the **Menu key** (`KEYCODE_MENU`),
+    labelled on the **left**. Both keys always open Options.
+  - **The other soft key does nothing** unless the app's owner asks for a shortcut, and even
+    then that action is also in the Options menu. Don't add a Refresh key: auto-refresh (§6).
   - **Consume the whole MENU press** (DOWN, UP and repeats) in `dispatchKeyEvent`. AppCompat
     opens its own options panel on MENU UP, covering yours (Sonim XP3800).
-  - Optional: pick the Options side from the keys the phone sends. MENU moves the label left,
-    a right soft key keeps it right; remember it, and once MENU is seen keep it left.
+  - **The first Menu press ever asks once:** "Your phone has an Options key. Show the "Options"
+    label on the left side of the screen instead?" Mark it seen before showing it. **No
+    Options-key setting in Settings:** switch back to the right only when a
+    `KEYCODE_SOFT_RIGHT` press is actually seen.
 - **Put the key map in one shared base activity** (see `templates/FlipBaseActivity.kt`), not in
-  each screen. Screens override hooks such as `onPrimaryKey()`.
-- **Show soft-key labels** in a bottom bar matching the physical keys. Labels must be
-  `focusable="false"`. If there's no bar, keep a one-line key legend, e.g. `0-9 SPEED  * MODE  # SETUP`.
+  each screen. Screens override hooks such as `onOptionsKey()`.
+- **Show one "Options" label** in a bottom bar, at the end matching the Options side. Labels
+  must be `focusable="false"`. If there's no bar, keep a one-line key legend, e.g.
+  `0-9 SPEED  * MODE  # SETUP`.
 - **OK key: match both `KEYCODE_DPAD_CENTER` and `KEYCODE_ENTER`.** Devices send either one.
 - **CENTER goes in `onKeyDown`**, so a focused list row gets it first ("open this row").
   If a view swallows CENTER (a MapView, for example), intercept it in `dispatchKeyEvent` on
@@ -50,6 +55,8 @@ because the obvious approach broke on the device.
   - Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.
 - **Repeats:** run one-shot actions only when `event.repeatCount == 0`. Let movement keys
   (scroll, pan) repeat.
+- **Launchers: hold `#` toggles ring/vibrate** (the stock Kyocera Home shortcut, not Do Not
+  Disturb). It needs no permission; see [docs/keys.md](docs/keys.md).
 - **Hold actions: time the hold yourself.** Post a delayed runnable on the first DOWN, cancel
   it on UP, and swallow the UP once it has fired. Don't trust `isLongPress` on Kyocera keypads:
   it can fire both the tap and the hold for one press. Some presses also send a spurious extra
@@ -58,11 +65,17 @@ because the obvious approach broke on the device.
 - **If you consume a key's DOWN, also consume its UP.** Otherwise the stray UP reaches the next
   window or app.
 - **Act on an UP only if this window saw its DOWN.** Otherwise the UP of the key that opened
-  this screen fires an action here.
+  this screen fires an action here. Exception: on the DuraXV the right soft key's DOWN can be
+  lost, so treat a DOWN-less UP of `KEYCODE_SOFT_RIGHT` as a tap.
 - **When a key launches another app** (for example the dialer), launch it on key **UP**.
   Otherwise the UP reaches that app and types a second digit.
+- **Typing a number from Home: buffer the digits and reopen the dialer with the whole number**
+  on each one. Keys typed while the dialer is opening still reach Home; see
+  [docs/keys.md](docs/keys.md).
 - **Unhandled CALL/END must reach `super`**, so the phone still dials and hangs up.
-  **CALL works well as Send** in compose screens.
+  **CALL works well as Send** in compose screens. On Kyocera, END may arrive as HOME, as BACK
+  with scan code 107, or not at all; call screens need the handling in
+  [docs/keys.md](docs/keys.md#end-on-kyocera).
 - **Mic/Assistant key** is `KEYCODE_F4` or raw code `287` (the E4610 sends 287 even when an
   app has focus). Match both.
 - **Outer buttons (SOS, outer END, outer Speaker, PTT) have no usable keycode.** Identify them
@@ -70,12 +83,14 @@ because the obvious approach broke on the device.
   long it's held, so they can't have a long press. Act on them only while your window has focus,
   the screen is on and the keyguard is down, so presses in a pocket do nothing.
 - **Bluetooth headset buttons send `KEYCODE_MEDIA_PLAY_PAUSE` or `KEYCODE_HEADSETHOOK`**, not
-  PAUSE. To catch them reliably while text-to-speech is playing, use an accessibility service
-  that filters key events (§5).
-- **Avoid these keys:**
-  - **Camera key:** the OS swallows it.
-  - **Volume Up:** it opens a volume popup that steals window focus. You *can* reuse volume keys
-    in a full-screen app with no text field (for example, for brightness).
+  PAUSE. They go to the media session of the app **playing** audio, so for text-to-speech render
+  with `synthesizeToFile` and play it yourself (`MediaPlayer`); an accessibility key filter
+  doesn't see them.
+- **Camera key** reaches apps: `KEYCODE_F3` (E4810), 288 matched by name (E4610) and
+  `KEYCODE_CAMERA`. Match all three.
+- **Volume keys:** never swallow them by accident. Volume Up opens a popup that steals window
+  focus, so don't use it as a trigger; you *can* reuse volume keys in a full-screen app with no
+  text field (for example, for brightness).
 - **Hold-to-act keys:** remember which action started on DOWN and stop that same action on UP.
   Also release all held keys in `onWindowFocusChanged(false)` and `onPause`, because a dialog or
   closing the flip can swallow the UP.
@@ -139,14 +154,22 @@ because the obvious approach broke on the device.
   Show the current mode in the left soft-key label.
 - **Never make the user type an API key.** Read it from a text file in storage, or accept it in
   an SMS from a trusted number.
+- **For settings with secrets (server, account, password, key), offer a setup code:** a QR code
+  or link made on a computer with the offline page in `templates/setup-code/`. The app scans or
+  pastes it, shows the decoded settings, and saves nothing until the user confirms. Format
+  `<scheme>:add?v=1&key=value…`, parsed in one place, `v=1` accepted forever.
 
 → Details: [docs/text-input.md](docs/text-input.md)
 
 ### 4. Screen, layout and type
-- **Design for 240×320 at mdpi.** Some phones are 320×240 landscape. Test at that size.
+- **Design for 240×320 px.** The E4810 runs at about 0.75 density (ldpi), not mdpi, so size
+  full-screen grids from the real pixel size and snap edges to whole pixels. Some phones are
+  320×240 landscape. Test at that size.
 - **Font sizes:** body text at least 16sp, labels 14sp, metadata 11sp minimum. Headers 18sp.
 - **One line per label, ellipsized.** Use `minHeight`, not fixed row heights. Give status and
-  message lines a fixed height so the layout doesn't jump.
+  message lines a fixed height so the layout doesn't jump. Where the full text matters (soft-key
+  labels, the highlighted row's subtitle), scroll it with a marquee instead; Android only scrolls
+  a **selected** `TextView`, so select it.
 - **Use a dark background with high contrast**, at least 7:1.
 - **Hide the system soft-key label bar** (the white bar the phone draws at the bottom) on every
   screen, and draw your own labelled bar instead. It is the system navigation bar. Use
@@ -176,8 +199,8 @@ because the obvious approach broke on the device.
 ### 5. Platform and SDK
 - **SDK levels:**
   - `minSdk`: 24, or 22 if a Sonim on Android 5.1 must work.
-  - `targetSdk`: 28–34. Test permission flows on the real phone.
-  - Build with Java/JVM 1.8 and `minifyEnabled false`.
+  - `targetSdk`: 28–35. Test permission flows on the real phone.
+  - Build with Java/JVM 1.8 or 17 and `minifyEnabled false`.
 - **Declare the touchscreen optional:**
   `<uses-feature android:name="android.hardware.touchscreen" android:required="false"/>`. Do
   the same for GPS, camera and microphone.
@@ -193,6 +216,10 @@ because the obvious approach broke on the device.
   API 31, so use `SmsManager.getDefault()`. Check every API against `minSdk`.
 - **Storage permissions:** put `maxSdkVersion` on the legacy ones, and only check them at
   runtime when `SDK_INT <= P`.
+- **To read a root-level folder (e.g. `Internal storage/<App>/`), set
+  `android:requestLegacyExternalStorage="true"`** for Android 10; `MANAGE_EXTERNAL_STORAGE`
+  only exists on 11+. Without the flag, the E4811 grants storage and still fails every read
+  silently.
 - **OEM Settings deep links to a single app's page don't work.** Open the general list screen
   (`ACTION_ACCESSIBILITY_SETTINGS`, `ACTION_USAGE_ACCESS_SETTINGS`, …) and show a toast with the
   manual path.
@@ -203,9 +230,26 @@ because the obvious approach broke on the device.
     `startActivity()` from the background.
   - After an update adds a capability (such as key filtering), the user must switch the service
     off and on once.
+  - `am force-stop` turns the service off; re-enable it afterwards.
+  - **On the E4811, turning the service on from Settings doesn't work; ADB does.** Ship the
+    append-safe ADB line ([docs/adb.md](docs/adb.md)) in the README, and when the service is
+    still off after the user returns from Settings, show that route in the app.
 - **Notification Access doesn't work on the E4810/E4811 (Android 9+).** It looks granted but
   never binds. Fall back to an accessibility service's notification events; they have no
   active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
+  They only report notifications that alert, so the silent missed-call one never arrives: spot
+  missed calls from the call state (RINGING → IDLE without OFFHOOK), and skip ongoing ones.
+- **Register receivers for platform broadcasts (`SCREEN_ON`, `USER_PRESENT`, `TIME_SET`) as
+  `RECEIVER_EXPORTED`.** Below Android 13, AndroidX's `RECEIVER_NOT_EXPORTED` blocks senders
+  that aren't the core system, such as SystemUI's `USER_PRESENT` or Settings' 12/24-hour change.
+- **Build a long-lived screen's `SimpleDateFormat` at each refresh.** It keeps the time zone and
+  language it was created with, so a cached one in a launcher misses time-zone changes until
+  reboot. Use `DateFormat.is24HourFormat()` for the system 12/24-hour setting.
+- **Opening the flip onto an app fires no window event.** To know what's on screen after an
+  unlock, listen for `USER_PRESENT` too, not just accessibility window changes.
+- **Aim `CALL` / `DIAL` / call-log intents at `TelecomManager.defaultDialerPackage`**
+  (`setPackage`, when that app resolves it). With a second phone app installed, a plain
+  `tel:` intent shows a "which app" chooser.
 - **`resolveActivity()` returns Android's chooser (package `android`)** when several apps match
   and none is default. Treat that as unresolved.
 - **For Quick Settings under your own launcher, open
@@ -221,8 +265,9 @@ because the obvious approach broke on the device.
 → Details: [docs/platform.md](docs/platform.md)
 
 ### 6. Network, data and battery
-- **Throttle manual refreshes to how often the data actually changes**, and show
-  "Already up to date - try again in about N min".
+- **Auto-refresh instead of a Refresh key.** Show the cache at once, refetch in the background
+  when it's due, recheck every minute while the screen is open, and show an "Updated h:mm" line
+  that turns red when stale. Any manual refresh is throttled to how often the data changes.
 - **Cache the last result** and draw it right away when the user comes back to a screen. Don't
   re-fetch just because they navigated.
 - **Keep all I/O and database work off the main thread.** Don't refresh from both `onCreate` and
@@ -244,33 +289,39 @@ because the obvious approach broke on the device.
 - **Show every error on screen in plain language**, with a way to retry. The user has no logcat.
 - **Distribute APKs by sideloading** (ADB, an email attachment, or a USB copy) through
   GitHub Releases. In the README, explain permission toggles as exact D-pad steps.
+- **Also give the adb commands for every permission** the app needs, with the package name
+  written out. Copy from [docs/adb.md](docs/adb.md); never tell users to overwrite
+  `enabled_accessibility_services`.
 
-→ Details: [docs/distribution.md](docs/distribution.md) · [docs/testing.md](docs/testing.md) ·
+→ Details: [docs/distribution.md](docs/distribution.md) · [docs/adb.md](docs/adb.md) ·
+[docs/testing.md](docs/testing.md) ·
 devices: [docs/devices.md](docs/devices.md)
 
 ---
 
 ## New-app checklist
-- [ ] `FlipBaseActivity` with soft keys (Left = primary action, Right/MENU = Options), OK =
-      CENTER|ENTER, and LEFT/RIGHT screen navigation that skips EditText
-- [ ] On-screen soft-key labels or a key legend; labels aren't focusable
+- [ ] `FlipBaseActivity` with one Options key (right soft key or MENU, first-MENU prompt, no
+      setting), the other soft key unused, OK = CENTER|ENTER, and LEFT/RIGHT screen navigation
+      that skips EditText
+- [ ] One on-screen "Options" label (or a key legend); labels aren't focusable
 - [ ] A shared focus drawable, applied to every list, row, button and field
 - [ ] List containers don't take focus; every screen has a starting focus
 - [ ] Back works sensibly on screens reached by a sideways jump
 - [ ] `touchscreen required=false`, `configChanges` for the flip, no `gms` dependency
 - [ ] `minSdk` ≤ 24 and no API calls above it
+- [ ] `requestLegacyExternalStorage="true"` if the app reads a root-level folder
 - [ ] A toast for unhandled keycodes; plain-language errors on screen
 - [ ] Every action fires on UP, only for a press whose DOWN this window saw
-- [ ] Refresh throttle and cached last result
-- [ ] README: device tested, sideload steps, key map table
-- [ ] Tested on a 240×320 mdpi emulator with touch off, then on the real phone
+- [ ] Auto-refresh with an "Updated" line, and cached last result
+- [ ] README: device tested, sideload steps, key map table, adb permission commands
+- [ ] Tested on a 240×320 low-density emulator with touch off, then on the real phone
 - [ ] If the app posts to the outer display: ask the user whether cards should show the time
       (a card covers the phone's own clock)
 
 ## Conventions decided here
-- **Options goes on the right soft key.** Some flip-phone apps put Options on the left and Back
-  on the right; don't follow them. Only change this if the right soft key really can't be
-  reached on a given screen (see the T9 note in §3).
+- **One Options key:** the right soft key on Kyocera, the Menu key (label on the left) on
+  phones that have one. The other soft key is unused unless the app's owner asks. Some
+  flip-phone apps put Options on the left soft key and Back on the right; don't follow them.
 - **Text entry:** choose the system T9 or a custom T9 per app, as described in §3. Never mix both
   approaches in one field.
 - **Zoom keys: `#` zooms in, `*` zooms out**, in image viewers and on maps alike.
@@ -279,5 +330,8 @@ devices: [docs/devices.md](docs/devices.md)
 When you find a new device quirk, keycode or workaround, **add it here in the same change**:
 - a one-line rule in this file, plus
 - the Rule → Why entry in the matching `docs/` file.
+
+If owners will notice the quirk, also add a plain-language entry in `owners/`, and keep in-app
+help text consistent with it.
 
 Keep this file short and imperative; put the long explanations in `docs/`.
