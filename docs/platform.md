@@ -40,8 +40,8 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
     them on API 29+ fails every time; on an E4811 the app never got past the check.
   - For root-level folders, use `MANAGE_EXTERNAL_STORAGE` on Android 11+ **and** set
     `android:requestLegacyExternalStorage="true"` on `<application>` for Android 10. *Why:*
-    TurboVoice (targetSdk 33) on the E4811 (Android 10) had storage granted, yet couldn't read
-    `/sdcard/Turbo Key/groq_api_key.txt`: Android 10 puts apps targeting 29+ in scoped storage
+    A voice-typing app (targetSdk 33) on the E4811 (Android 10) had storage granted, yet couldn't read
+    its key file in a root-level folder (`/sdcard/<App>/api_key.txt`): Android 10 puts apps targeting 29+ in scoped storage
     unless they set the flag, and `MANAGE_EXTERNAL_STORAGE` doesn't exist there. The File API
     failed silently, so the app just reported "no API key". Without a rebuild,
     `appops set --uid <pkg> LEGACY_STORAGE allow` plus a force-stop fixes it (see
@@ -163,7 +163,7 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   12/24-hour change.
 - **A clock that lives for days (a launcher's Home) must build its `SimpleDateFormat`s at each
   refresh.** *Why:* a `SimpleDateFormat` keeps the time zone and locale it was created with.
-  Created once in `onCreate`, Flip Launcher's clock stayed on the old zone after a time-zone
+  Created once in `onCreate`, a launcher's clock stayed on the old zone after a time-zone
   change until the phone restarted, although the time broadcasts arrived. Follow
   `DateFormat.is24HourFormat()` and use `getBestDateTimePattern` for the locale's own style.
 
@@ -220,13 +220,13 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - `setRemoteViews(...)`: the cover stays blank (status bar only) whatever the views or
     colours, with or without `setFullScreen(true)`.
 
-  *Why:* each was tried on the DuraXV (MatChat). Don't spend another round on them.
+  *Why:* each was tried on the DuraXV. Don't spend another round on them.
 - **The icon is a resource id only, and should be square.**
   - A runtime `Bitmap` or `Icon`, handed to any extender setter or to
     `Notification.Builder.setLargeIcon`, is ignored.
   - The slot is square and scales the image to fit, so a wide image draws small. Of 24 px
     `drawable-mdpi`, 48 px and 96 px `drawable-nodpi`, **96×96 `drawable-nodpi` drew best**.
-  - Black on transparent reads well. App images work: that's how TurboText shows its own
+  - Black on transparent reads well. App images work: that's how a messaging app showed its own
     message symbol.
 - **Measure how many characters fit beside the icon** with a still "ruler" card
   (`0123456789ABCDEFGHIJ`). *Why:* about 14 fit beside a small icon but only 9 beside a 96 px

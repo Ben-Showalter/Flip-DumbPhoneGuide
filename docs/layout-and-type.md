@@ -17,7 +17,7 @@ Each entry gives the **rule** first, then *why* it exists.
   `ACTION_BATTERY_CHANGED` broadcast.
 
 ## System soft-key bar
-Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`.
+Confirmed on a real phone. Starter code: `templates/SystemBars.kt`.
 
 - **Hide the white soft-key label bar the phone draws at the bottom of the screen, on every
   screen.** It is the system *navigation bar*. *Why:* your app's own soft-key bar already shows
@@ -41,7 +41,7 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
   - Watch focus with a `ViewTreeObserver.OnGlobalFocusChangeListener`: show the bar when focus
     moves into a text field, hide it when focus moves out.
   - *Why:* the system T9 keyboard shows its word and mode labels in that bar. The re-hide
-    listener fought it and took the labels away while the user typed (MatChat). This replaces
+    listener fought it and took the labels away while the user typed. This replaces
     the earlier advice to just let the keyboard bring the bar back.
 - **Don't draw your window under the bar.** Let the content grow into the freed space.
   *Why:* if a ROM refuses to hide the bar, your own bar then sits above it rather than behind it.

@@ -2,7 +2,7 @@
 
 Commands for setting up a sideloaded app on a flip phone from a computer. Use them when the
 phone's own Settings can't reach a toggle with the D-pad, or when you set up several phones.
-Replace `<pkg>` with the app's package name, e.g. `com.turbovoice.app`, and `<Service>` with
+Replace `<pkg>` with the app's package name, e.g. `com.example.app`, and `<Service>` with
 the accessibility service's class name.
 
 Each entry gives the **rule** first, then *why* it exists.
@@ -17,7 +17,7 @@ Each entry gives the **rule** first, then *why* it exists.
 - **Paste one command per line, or join them with `;` on one line.** *Why:* a multi-line paste
   can carry Windows carriage returns that stick to the last word. Our best explanation for
   `Unknown permission: android.permission.RECORD_AUDIO`, a permission every phone has.
-- **Quote paths with spaces twice:** `adb shell "ls -la '/sdcard/Turbo Key/'"`. *Why:* `adb shell`
+- **Quote paths with spaces twice:** `adb shell "ls -la '/sdcard/My App/'"`. *Why:* `adb shell`
   re-joins its arguments and the phone's shell splits them again, so one level of quotes is
   lost and `/sdcard/Turbo` and `Key/` become two paths.
 - **Windows vs Mac/Linux quoting:** wrap a command that contains `$(…)` in **double** quotes on
@@ -70,9 +70,9 @@ adb shell appops set <pkg> ACCESS_RESTRICTED_SETTINGS allow          # Android 1
 ## Storage on Android 10 (E4811)
 On Android 10, an app that targets API 29+ and lacks `requestLegacyExternalStorage="true"` is
 in scoped storage: READ/WRITE_EXTERNAL_STORAGE show as granted, yet reading a root-level folder
-such as `/sdcard/Turbo Key/` fails silently. The real fix is the manifest flag (see
+such as `/sdcard/My App/` fails silently. The real fix is the manifest flag (see
 [platform.md](platform.md#manifest)). Without changing the app, this works (confirmed on the
-E4811 with TurboVoice):
+E4811 with a voice-typing app):
 ```
 adb shell pm grant <pkg> android.permission.READ_EXTERNAL_STORAGE
 adb shell pm grant <pkg> android.permission.WRITE_EXTERNAL_STORAGE
@@ -118,13 +118,13 @@ Keeps Android from idling the app's background service.
 
 ## Files (API key files)
 ```
-adb shell "mkdir -p '/sdcard/Turbo Key'"
-adb push groq_api_key.txt "/sdcard/Turbo Key/groq_api_key.txt"
-adb shell "ls -la '/sdcard/Turbo Key/'"
-adb shell "head -c 4 '/sdcard/Turbo Key/groq_api_key.txt' | od -c"
+adb shell "mkdir -p '/sdcard/My App'"
+adb push api_key.txt "/sdcard/My App/api_key.txt"
+adb shell "ls -la '/sdcard/My App/'"
+adb shell "head -c 4 '/sdcard/My App/api_key.txt' | od -c"
 ```
 - **Check the name, size and first bytes, not the whole key.** *Why:* the file can be
-  `groq_api_key.txt.txt` (Windows hides extensions), empty (the app created it), or start with
+  `api_key.txt.txt` (Windows hides extensions), empty (the app created it), or start with
   a UTF-8 BOM (`357 273 277` in `od`) from Notepad, which `trim()` doesn't remove. Printing the
   whole file puts the secret in a chat or log.
 
@@ -142,20 +142,20 @@ Start it, then reproduce the problem on the phone.
 | `Unknown operation string: allow` | The package-name variable was empty | Write the package name out |
 | `Unknown operation string: <OP>` | This Android version doesn't have that op | Skip it; check `getprop ro.build.version.release` |
 | `Unknown permission: android.permission.<NAME>` for a standard permission | Most likely a stray carriage return from a multi-line paste | Paste one line at a time |
-| `ls: /sdcard/Turbo: No such file or directory` | Path with a space lost its quotes | Quote twice: `"ls '/sdcard/Turbo Key/'"` |
+| `ls: /sdcard/My: No such file or directory` | Path with a space lost its quotes | Quote twice: `"ls '/sdcard/My App/'"` |
 | `Uid mode: LEGACY_STORAGE: ignore` | The uid mode overrides the package mode | `appops set --uid <pkg> LEGACY_STORAGE allow`, then force-stop |
 
-## Worked example: TurboVoice on an E4811 (Android 10)
+## Worked example: an accessibility + voice app on an E4811 (Android 10)
 ```
-adb shell pm grant com.turbovoice.app android.permission.RECORD_AUDIO
-adb shell pm grant com.turbovoice.app android.permission.RECEIVE_SMS
-adb shell pm grant com.turbovoice.app android.permission.READ_EXTERNAL_STORAGE
-adb shell pm grant com.turbovoice.app android.permission.WRITE_EXTERNAL_STORAGE
-adb shell appops set com.turbovoice.app SYSTEM_ALERT_WINDOW allow
-adb shell appops set com.turbovoice.app REQUEST_INSTALL_PACKAGES allow
-adb shell appops set --uid com.turbovoice.app LEGACY_STORAGE allow
-adb shell dumpsys deviceidle whitelist +com.turbovoice.app
-adb shell am force-stop com.turbovoice.app
-adb shell "S=com.turbovoice.app/com.turbovoice.app.TurboVoiceAccessibilityService; C=$(settings get secure enabled_accessibility_services); case $C in *$S*) N=$C;; null|'') N=$S;; *) N=$C:$S;; esac; settings put secure enabled_accessibility_services $N; settings put secure accessibility_enabled 1"
+adb shell pm grant com.example.app android.permission.RECORD_AUDIO
+adb shell pm grant com.example.app android.permission.RECEIVE_SMS
+adb shell pm grant com.example.app android.permission.READ_EXTERNAL_STORAGE
+adb shell pm grant com.example.app android.permission.WRITE_EXTERNAL_STORAGE
+adb shell appops set com.example.app SYSTEM_ALERT_WINDOW allow
+adb shell appops set com.example.app REQUEST_INSTALL_PACKAGES allow
+adb shell appops set --uid com.example.app LEGACY_STORAGE allow
+adb shell dumpsys deviceidle whitelist +com.example.app
+adb shell am force-stop com.example.app
+adb shell "S=com.example.app/com.example.app.MyAccessibilityService; C=$(settings get secure enabled_accessibility_services); case $C in *$S*) N=$C;; null|'') N=$S;; *) N=$C:$S;; esac; settings put secure enabled_accessibility_services $N; settings put secure accessibility_enabled 1"
 ```
 Then open the app and check its permission checklist.

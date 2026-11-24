@@ -12,7 +12,7 @@ link pasted in. Rules and reasons: [docs/text-input.md](../../docs/text-input.md
 - **Output:** the link `<scheme>:add?v=1&key=value&…` (URL-encoded, empty fields left out),
   its QR code, Copy link, Save QR as image (PNG with a label), and Print QR.
 
-First used in [BusyCall](https://github.com/Ben-Showalter/BusyCall) (`tools/setup-code/`).
+First used in a SIP calling app with several accounts per phone.
 
 ## Files
 

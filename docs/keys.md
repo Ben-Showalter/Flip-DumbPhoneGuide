@@ -39,7 +39,7 @@ it here.
   *Why:* the soft keys don't send `SOFT_LEFT`/`SOFT_RIGHT` on every device.
 - **Consume the whole MENU press in `dispatchKeyEvent`: its DOWN, its UP and its repeats.**
   *Why:* AppCompat opens its own (empty) options panel on MENU UP, covering the menu your DOWN
-  just opened. On a Sonim XP3800, MENU looked like it did nothing. FlipWeather does this too.
+  just opened. On a Sonim XP3800, MENU looked like it did nothing.
 - **Optional: pick the Options side automatically from the keys the phone sends.**
   - Default: Options on the right soft key.
   - The first `KEYCODE_MENU` moves the "Options" label to the left; a `KEYCODE_SOFT_RIGHT` keeps

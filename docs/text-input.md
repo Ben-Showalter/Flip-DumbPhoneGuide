@@ -79,7 +79,7 @@ Template: [`templates/NoImeEditText.kt`](../templates/NoImeEditText.kt).
 
 ## Setup codes (QR code or link)
 
-First designed for BusyCall (a SIP app with several accounts per phone). The page itself is
+First designed for a SIP calling app with several accounts per phone. The page itself is
 tested in a browser; **the phone side (camera scanning, saving to Download, moving the file
 off the phone) isn't confirmed on hardware yet.** Update this section when it is.
 
