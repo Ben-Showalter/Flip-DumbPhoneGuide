@@ -77,6 +77,12 @@ Confirmed on a real phone (FlipWeather). Starter code: `templates/SystemBars.kt`
 | Soft-key bar | 15–16sp, fixed height, ignores the app's text-size setting |
 
 - **Keep every label on one line** with `singleLine`/`maxLines=1` and `ellipsize="end"`.
+- **Scroll text that must be read whole instead of cutting it** (`ellipsize="marquee"`,
+  `marqueeRepeatLimit="marquee_forever"`, single line). Do it always for soft-key labels and
+  passive banners, and on the highlighted row only for lists (set `isSelected = hasFocus` in the
+  row's focus listener). *Why:* at 240px wide, "Add from gallery" in a soft-key slot and
+  settings subtitles were cut to "Add from g…". A marquee only runs while the `TextView` is
+  selected (or focused, and list rows' text never is), so without `isSelected` it never moves.
 - **Write short error and status messages that fit one line.**
 - **Offer a text-size setting through theme overlays (Small/Normal/Large) applied before
   `super.onCreate`.** Recreate the activity when the setting changes.

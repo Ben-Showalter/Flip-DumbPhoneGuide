@@ -131,6 +131,41 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   - Store the events in arrival order and pick the newest by `postTime`, never by list
     position. *Why:* the listener's list is newest-first and the event store is oldest-first;
     code shared between them showed the oldest message.
+- **The event feed only gets notifications that alert.** Silent posts and silent updates
+  never arrive. *Why:* Android sends `TYPE_NOTIFICATION_STATE_CHANGED` from the code that
+  plays a notification's sound or vibration. A messaging app that updates its notification
+  silently for a second unread message was never seen again.
+- **Missed calls: watch the call state, not notifications.** Use
+  `TelephonyManager.listen(..., LISTEN_CALL_STATE)` (no permission needed on Android 9/10).
+  RINGING → IDLE without OFFHOOK is a missed call. With `READ_CALL_LOG`, read the newest
+  call-log entry about 1.5 s later: `MISSED_TYPE` names the caller (`CACHED_NAME`/`NUMBER`), and
+  `REJECTED`/blocked means the user declined it. Without it, take the caller from the ringing
+  notification's title. Skip ongoing notifications (`FLAG_ONGOING_EVENT`) in the event feed.
+  *Why:* on the E4810/E4811 the dialer's only event is the ongoing ringing notification
+  (`com.android.dialer`, no category). The missed-call notification is silent, so it never
+  arrives, and with no removals the ringing one lingered as if it were the missed call.
+  Without `READ_CALL_LOG` there's no caller at all (on Android 9+ the incoming number in
+  `onCallStateChanged` is empty without it), so ask for it.
+- **Don't count `com.android.phone` notifications as calls.** *Why:* it posts network notices
+  such as "No mobile data service - Temporarily turned off by your carrier", which then showed
+  on a launcher's call banner.
+- **Dismissing by "the user left the app": opening the flip onto an app fires no
+  `TYPE_WINDOW_STATE_CHANGED`.** The app that was left open just comes back on screen, so
+  window events alone never say it's in front again. Also listen for `SCREEN_ON` (with the
+  keyguard down) and `USER_PRESENT`, and treat the app in front then as seen. *Why:* a
+  launcher's banner stuck after closing the flip with the app open.
+- **Register that receiver `RECEIVER_EXPORTED`, not `RECEIVER_NOT_EXPORTED`.** *Why:* below
+  Android 13, `ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)` guards the receiver
+  with an app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. `USER_PRESENT` is sent by
+  SystemUI (an app uid), so logcat shows "Permission Denial ... USER_PRESENT ... requires
+  <pkg>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" and the unlock never arrives. The same goes
+  for a clock's `TIME_TICK`/`TIME_SET`/`TIMEZONE_CHANGED` receiver: Settings sends the
+  12/24-hour change.
+- **A clock that lives for days (a launcher's Home) must build its `SimpleDateFormat`s at each
+  refresh.** *Why:* a `SimpleDateFormat` keeps the time zone and locale it was created with.
+  Created once in `onCreate`, Flip Launcher's clock stayed on the old zone after a time-zone
+  change until the phone restarted, although the time broadcasts arrived. Follow
+  `DateFormat.is24HourFormat()` and use `getBestDateTimePattern` for the locale's own style.
 
 ## Opening the app
 - **A launcher tap resumes whatever screen was last open.** *Why:* the existing task is brought
@@ -152,6 +187,13 @@ See [`templates/AndroidManifest-snippets.xml`](../templates/AndroidManifest-snip
   should go home.
 
 ## Resolving apps
+- **Aim `CALL`, `DIAL` and call-log intents at the default dialer.** Read
+  `TelecomManager.defaultDialerPackage` (API 23+), `setPackage` it when `resolveActivity` finds
+  it handles the intent, and send the plain intent otherwise (e.g. `voicemail:`, which only the
+  stock dialer knows). For the call log use `ACTION_VIEW` with type
+  `vnd.android.cursor.dir/calls`. *Why:* with a VoIP dialer installed beside the stock one, a
+  launcher's speed dial (`ACTION_CALL tel:`) opened Android's "which app" chooser every time,
+  and the CALL key's Kyocera-only call-log component didn't open the new dialer's log.
 - **Treat a `resolveActivity()` result in package `android` as unresolved.**
   *Why:* when several apps handle an intent and none is the default, it returns Android's
   chooser, so "the Gallery app" turned out to be the chooser.

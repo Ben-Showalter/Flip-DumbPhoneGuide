@@ -50,6 +50,8 @@ because the obvious approach broke on the device.
   - Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.
 - **Repeats:** run one-shot actions only when `event.repeatCount == 0`. Let movement keys
   (scroll, pan) repeat.
+- **Launchers: hold `#` toggles ring/vibrate** (the stock Kyocera Home shortcut, not Do Not
+  Disturb). It needs no permission; see [docs/keys.md](docs/keys.md).
 - **Hold actions: time the hold yourself.** Post a delayed runnable on the first DOWN, cancel
   it on UP, and swallow the UP once it has fired. Don't trust `isLongPress` on Kyocera keypads:
   it can fire both the tap and the hold for one press. Some presses also send a spurious extra
@@ -61,6 +63,9 @@ because the obvious approach broke on the device.
   this screen fires an action here.
 - **When a key launches another app** (for example the dialer), launch it on key **UP**.
   Otherwise the UP reaches that app and types a second digit.
+- **Typing a number from Home: buffer the digits and reopen the dialer with the whole number**
+  on each one. Keys typed while the dialer is opening still reach Home; see
+  [docs/keys.md](docs/keys.md).
 - **Unhandled CALL/END must reach `super`**, so the phone still dials and hangs up.
   **CALL works well as Send** in compose screens.
 - **Mic/Assistant key** is `KEYCODE_F4` or raw code `287` (the E4610 sends 287 even when an
@@ -70,8 +75,9 @@ because the obvious approach broke on the device.
   long it's held, so they can't have a long press. Act on them only while your window has focus,
   the screen is on and the keyguard is down, so presses in a pocket do nothing.
 - **Bluetooth headset buttons send `KEYCODE_MEDIA_PLAY_PAUSE` or `KEYCODE_HEADSETHOOK`**, not
-  PAUSE. To catch them reliably while text-to-speech is playing, use an accessibility service
-  that filters key events (§5).
+  PAUSE. They go to the media session of the app **playing** audio, so for text-to-speech render
+  with `synthesizeToFile` and play it yourself (`MediaPlayer`); an accessibility key filter
+  doesn't see them.
 - **Avoid these keys:**
   - **Camera key:** the OS swallows it.
   - **Volume Up:** it opens a volume popup that steals window focus. You *can* reuse volume keys
@@ -146,7 +152,9 @@ because the obvious approach broke on the device.
 - **Design for 240×320 at mdpi.** Some phones are 320×240 landscape. Test at that size.
 - **Font sizes:** body text at least 16sp, labels 14sp, metadata 11sp minimum. Headers 18sp.
 - **One line per label, ellipsized.** Use `minHeight`, not fixed row heights. Give status and
-  message lines a fixed height so the layout doesn't jump.
+  message lines a fixed height so the layout doesn't jump. Where the full text matters (soft-key
+  labels, the highlighted row's subtitle), scroll it with a marquee instead; Android only scrolls
+  a **selected** `TextView`, so select it.
 - **Use a dark background with high contrast**, at least 7:1.
 - **Hide the system soft-key label bar** (the white bar the phone draws at the bottom) on every
   screen, and draw your own labelled bar instead. It is the system navigation bar. Use
@@ -211,6 +219,19 @@ because the obvious approach broke on the device.
 - **Notification Access doesn't work on the E4810/E4811 (Android 9+).** It looks granted but
   never binds. Fall back to an accessibility service's notification events; they have no
   active list and no removals, and arrive oldest first, so pick the newest by `postTime`.
+  They only report notifications that alert, so the silent missed-call one never arrives: spot
+  missed calls from the call state (RINGING → IDLE without OFFHOOK), and skip ongoing ones.
+- **Register receivers for platform broadcasts (`SCREEN_ON`, `USER_PRESENT`, `TIME_SET`) as
+  `RECEIVER_EXPORTED`.** Below Android 13, AndroidX's `RECEIVER_NOT_EXPORTED` blocks senders
+  that aren't the core system, such as SystemUI's `USER_PRESENT` or Settings' 12/24-hour change.
+- **Build a long-lived screen's `SimpleDateFormat` at each refresh.** It keeps the time zone and
+  language it was created with, so a cached one in a launcher misses time-zone changes until
+  reboot. Use `DateFormat.is24HourFormat()` for the system 12/24-hour setting.
+- **Opening the flip onto an app fires no window event.** To know what's on screen after an
+  unlock, listen for `USER_PRESENT` too, not just accessibility window changes.
+- **Aim `CALL` / `DIAL` / call-log intents at `TelecomManager.defaultDialerPackage`**
+  (`setPackage`, when that app resolves it). With a second phone app installed, a plain
+  `tel:` intent shows a "which app" chooser.
 - **`resolveActivity()` returns Android's chooser (package `android`)** when several apps match
   and none is default. Treat that as unresolved.
 - **For Quick Settings under your own launcher, open

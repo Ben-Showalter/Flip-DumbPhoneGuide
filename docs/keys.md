@@ -101,8 +101,25 @@ it here.
 - **On map screens:** `*` zoom out, `#` zoom in, `5` re-center.
 - **Digits select presets; `*` cycles a mode.**
 - **Treat `KEYCODE_STAR` and `KEYCODE_NUMPAD_MULTIPLY` as the same key.**
+- **Launchers: hold `#` toggles ring/vibrate**, as the stock Kyocera Home does; a tap still
+  opens the dialer with "#". Switch `AudioManager.ringerMode` between `RINGER_MODE_NORMAL` and
+  `RINGER_MODE_VIBRATE`, with a toast ("Phone set to Vibrate only"). *Why:* that's what the
+  stock shortcut does (its logcat: `internal_ringer_mode_changed vibrate`), not Do Not Disturb.
+  Normal <-> vibrate needs no permission; Do Not Disturb would need the "Do Not Disturb access"
+  grant, and that list stays empty for sideloaded apps on the E4810/E4811.
 - **Digits that open the dialer act on key UP.**
   *Why:* if you open it on DOWN, the UP reaches the dialer and the first digit is typed twice.
+- **Typing a number from Home: keep every digit and reopen the dialer with the whole number.**
+  Collect digits typed on Home in a buffer (cleared in `onResume`). On each digit, open
+  `ACTION_DIAL` with `tel:<whole buffer>`. In `onPause`, send any digit still waiting out its
+  tap debounce, rather than cancelling it.
+  *Why:* the dialer takes a few hundred ms to come up. Keys typed meanwhile still reach Home, so
+  opening the dialer with only the latest digit lost digits for a fast typist. Clearing pending
+  callbacks in `onPause` dropped the digits typed just after the first one.
+- **Don't cancel a pending same-digit tap on every re-press.** Only a re-press within about
+  60ms of the release is the keypad splitting one hold in two; anything later is a real second
+  press ("55").
+  *Why:* cancelling on any re-press merged fast doubles into one digit.
 - **Long press: time the hold yourself.** Post a delayed runnable on the first DOWN
   (`repeatCount == 0`), cancel it on UP, and when it has fired, swallow the UP so it doesn't
   also count as a tap. Comparing `event.eventTime - event.downTime >= HOLD_MS` on repeat events
@@ -167,9 +184,14 @@ it here.
   Override `onMediaButtonEvent`.
 - **On Android 7 set `FLAG_HANDLES_MEDIA_BUTTONS`** (deprecated, a no-op on 26+).
   *Why:* without it the session receives no media buttons on the E4610.
-- **For text-to-speech, also catch the buttons in an accessibility service that filters key
-  events** (see [platform.md](platform.md)). *Why:* on Android 8+ media buttons go to the app
-  that last played audio, and TTS audio is played by the speech engine's process, so your
-  session may never be chosen.
-- **To let any button stop a readout,** consume the stopping press (DOWN and UP) and let volume
-  keys through so the user can still adjust the volume.
+- **For text-to-speech, render with `TextToSpeech.synthesizeToFile` and play the file from your
+  own process (`MediaPlayer`, `USAGE_MEDIA`).** *Why:* on Android 8+ media buttons go to the
+  session of the app actually playing audio. Spoken with `tts.speak`, the audio belongs to the
+  speech engine's process, so your session is never chosen. An accessibility service that
+  filters key events doesn't help: Bluetooth media buttons never pass through it (Flip
+  Launcher's headset button didn't stop its readout until it played the audio itself).
+- **To let any phone button stop a readout,** stop on the key's DOWN in an accessibility key
+  filter (and your own `dispatchKeyEvent`) but don't consume it, so the key still does its
+  normal job; let volume keys through without stopping, so the user can still adjust the
+  volume. *Why:* users expect the press to work as well; swallowing it made every stop cost an
+  extra press.
