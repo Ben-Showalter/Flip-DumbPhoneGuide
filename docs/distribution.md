@@ -24,5 +24,6 @@ Each entry gives the **rule** first, then *why* it exists.
   - give the adb command for each permission too, with the package name written out (see
     [adb.md](adb.md)). *Why:* some toggles can't be reached with the D-pad on every model,
     and setting up several phones is faster over adb.
-- **Never make the user type a key or secret on the keypad.** Use a text file in storage, or an
-  SMS setup message (see [text-input.md](text-input.md)).
+- **Never make the user type a key or secret on the keypad.** Use a text file in storage, an
+  SMS setup message, or a setup code (QR code or link) made with `templates/setup-code/`
+  (see [text-input.md](text-input.md)).
