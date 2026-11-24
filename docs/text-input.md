@@ -26,6 +26,18 @@ Never mix two approaches in one field.
 - **While a text field is focused, the system T9 keyboard can swallow `KEYCODE_SOFT_RIGHT`**
   (see [keys.md](keys.md)).
 
+- **On Kyocera the system T9 also keeps D-pad UP/DOWN while a field is focused,** so a form's
+  Save row can't be reached. In `dispatchKeyEvent`, before the IME sees the key, move focus out
+  with `focusSearch` on DOWN at the field's last line or UP at its first line, and consume the
+  matching UP. Also consume MENU while typing so nothing opens over the T9.
+- **Read the clipboard only after your window has regained focus** (Android 10+). *Why:* a Paste
+  chosen from an Options dialog read an empty clipboard while the dialog was still closing.
+- **Strip invisible characters before matching text** (U+2068/2069 direction marks, zero-width
+  spaces), but keep the emoji joiner. *Why:* some messaging apps wrap quoted text in them.
+- **Enter dates and times with a keypad picker, not Android's pickers.** Digits fill fields that
+  advance by themselves, ◀▶ move between fields, ▲▼ change one, Clear deletes or cancels. For
+  AM/PM, `2` = AM and `7` = PM (the letters on those keys).
+
 ## NoImeEditText (your own T9)
 Template: [`templates/NoImeEditText.kt`](../templates/NoImeEditText.kt).
 - **`onCheckIsTextEditor() = false` and `onCreateInputConnection() = null`.**
@@ -66,6 +78,18 @@ Template: [`templates/NoImeEditText.kt`](../templates/NoImeEditText.kt).
   about 3s.
 - **Recipient fields can reuse T9 to match contact names.**
 
+- **Send commits the highlighted T9 suggestion (or open punctuation pick) first.** *Why:*
+  otherwise the word being typed was dropped.
+- **Rank T9 guesses by how often each word was picked for those keys, then by frequency,** not
+  "last picked first". Halve counts past ~200 so habits can change. *Why:* with last-picked,
+  "me" and "of" (both 6-3) kept swapping.
+- **Hold `#` for a new line** using the same hold timer as digits; ignore OS repeats so holding
+  `#` doesn't type a row of spaces. Turn it off in one-line fields.
+- **Filter emoji with `Paint.hasGlyph`** rather than only a hand-made list, and show newer emoji
+  the font can't draw as an older close match.
+- **Don't invalidate a custom cursor overlay on every `onDraw`.** Redraw only when the scroll
+  position changed. *Why:* it redrew 60 times a second, draining the battery.
+
 ## Secrets and setup text
 - **Never make the user type an API key on the keypad.**
   - Read it from a text file such as `Internal storage/<AppName>/api_key.txt`. Create the
@@ -76,6 +100,13 @@ Template: [`templates/NoImeEditText.kt`](../templates/NoImeEditText.kt).
     [platform.md](platform.md#manifest)).
   - Or accept an SMS from a trusted number, `<APP>_SETUP:<base64 key>`, through a receiver
     protected by `BROADCAST_SMS`.
+
+- **Clean a key read from a file:** strip a BOM and zero-width characters, surrounding quotes
+  and a pasted `NAME=` prefix, and take the first non-empty line. On a 401, show where the key
+  came from and its last 4 characters. *Why:* stray characters and stale fallback keys caused
+  401s that were hard to diagnose on the phone.
+- **Files under `/sdcard/Android/data/<pkg>/files/` need no permission** and are the easiest drop
+  point for setup files on Android 10+. Open the app once first so the folder exists.
 
 ## Setup codes (QR code or link)
 
@@ -110,9 +141,11 @@ off the phone) isn't confirmed on hardware yet.** Update this section when it is
   existing file of the same name so the on-screen path stays true.
 - **Decode QR codes with ZXing core (Apache-2.0)** in your own camera screen. Never Google ML
   Kit (needs Play services) or a third-party scanner app. Reach the scanner from a menu item:
-  the camera key is swallowed by the OS (see [keys.md](keys.md)).
+  don't rely on the camera key alone (see [keys.md](keys.md)).
 - **Clear the clipboard after reading a pasted code, and never log the code or any field from
   it.**
 - **Flip-phone message apps often only make `http(s)` links tappable,** so a `<scheme>:` link
   usually has to be copied and pasted. If tapping matters, host the same page and also produce
   `https://<host>/<app>#add?…`: everything after `#` never reaches the web server.
+- **Confirmation screens for setup codes show one dot per real password character,** offer Show
+  password, and warn when the password starts or ends with a space.

@@ -91,7 +91,9 @@ adb shell am force-stop <pkg>
 - **Re-enable the accessibility service after a force-stop** (next section).
 
 ## Accessibility service
-Add the service to the enabled list without turning off anyone else's. One line, Windows:
+**On the E4811 this is the only route that works:** switching the service on from Settings
+doesn't. Elsewhere it's the fastest route. Add the service to the enabled list without turning
+off anyone else's. One line, Windows:
 ```
 adb shell "S=<pkg>/<pkg>.<Service>; C=$(settings get secure enabled_accessibility_services); case $C in *$S*) N=$C;; null|'') N=$S;; *) N=$C:$S;; esac; settings put secure enabled_accessibility_services $N; settings put secure accessibility_enabled 1"
 ```
@@ -109,6 +111,19 @@ adb shell "dumpsys accessibility | grep -i <pkg>"
   app's checklist went from ✓ to ✗ for accessibility right after a force-stop.
 - If the setting is saved but the service doesn't start, toggle it off and on in
   Settings → Accessibility.
+
+## Default apps and other access
+```
+adb shell cmd role add-role-holder android.app.role.SMS <pkg>          # default SMS, Android 10+
+adb shell am start -a android.provider.Telephony.ACTION_CHANGE_DEFAULT --es package <pkg>   # older: answer Yes on the phone
+adb shell cmd package set-home-activity <pkg>/<Activity>              # default Home
+adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME          # fallback: pick it, choose Always
+adb shell cmd notification allow_listener <pkg>/<Listener>            # notification access, API 26+ (never binds on E4810/E4811)
+adb shell appops set <pkg> GET_USAGE_STATS allow                      # Usage access
+```
+- **Device owner (MDM):** `adb shell dpm set-device-owner '<pkg>/.Receiver'`. Any signed-in
+  account blocks it, so check `adb shell dumpsys account` and remove accounts in Settings →
+  Accounts first. Install MDMs last, because an MDM can block later installs.
 
 ## Battery
 ```
@@ -134,6 +149,18 @@ adb logcat -s <Tag1> <Tag2>
 ```
 Start it, then reproduce the problem on the phone.
 
+## Reading results
+- **Older Android versions often exit with code 0 even when a command fails.** Treat output that
+  starts with `Error`, `Failure`, `Exception`, `Security exception`, `Unknown command`,
+  `Can't find service`, `Bad component name` or `usage:` as a failure.
+- **Gate version-specific commands on `getprop ro.build.version.sdk`** (not `.release`):
+  `POST_NOTIFICATIONS` and `READ_MEDIA_IMAGES` need 33+, `BLUETOOTH_CONNECT` 31+,
+  `MANAGE_EXTERNAL_STORAGE` 30+, `REQUEST_INSTALL_PACKAGES` 26+.
+- **Browser installers (WebADB):** push the APK to `/data/local/tmp/<name>.apk`, run
+  `pm install -r`, then `rm` it. Only one program can hold the USB connection, so run
+  `adb kill-server` first. WebUSB needs Chrome or Edge; some Windows PCs need the Google USB
+  Driver.
+
 ## Errors and what they mean
 
 | Error | Cause | Fix |
@@ -141,9 +168,23 @@ Start it, then reproduce the problem on the phone.
 | `adb: inaccessible or not found` | You ran `adb shell …` inside `adb shell` | Drop the `adb shell` prefix, or `exit` first |
 | `Unknown operation string: allow` | The package-name variable was empty | Write the package name out |
 | `Unknown operation string: <OP>` | This Android version doesn't have that op | Skip it; check `getprop ro.build.version.release` |
-| `Unknown permission: android.permission.<NAME>` for a standard permission | Most likely a stray carriage return from a multi-line paste | Paste one line at a time |
+| `Unknown permission: android.permission.<NAME>` for a standard permission | A stray carriage return from a multi-line paste | Paste one line at a time |
+| `Unknown permission`, `not a changeable permission type` or `has not requested permission` | The permission doesn't exist on this Android version (e.g. `BLUETOOTH_CONNECT` before 12), or the app doesn't ask for it | Not an error; skip it |
 | `ls: /sdcard/My: No such file or directory` | Path with a space lost its quotes | Quote twice: `"ls '/sdcard/My App/'"` |
 | `Uid mode: LEGACY_STORAGE: ignore` | The uid mode overrides the package mode | `appops set --uid <pkg> LEGACY_STORAGE allow`, then force-stop |
+
+## Install errors
+
+| Code | Meaning |
+|---|---|
+| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Signed with a different key; uninstall first |
+| `INSTALL_FAILED_VERSION_DOWNGRADE` | The phone already has a newer version |
+| `INSTALL_FAILED_INSUFFICIENT_STORAGE` | The phone is out of space |
+| `INSTALL_FAILED_OLDER_SDK` | The app needs a newer Android version |
+| `INSTALL_FAILED_NO_MATCHING_ABIS` | Wrong processor build |
+| `INSTALL_FAILED_TEST_ONLY` | A test build; can't be installed this way |
+| `INSTALL_FAILED_USER_RESTRICTED` | Turn on "Install via USB" in Developer options |
+| `INSTALL_PARSE_FAILED_NOT_APK` | The file isn't a valid APK |
 
 ## Worked example: an accessibility + voice app on an E4811 (Android 10)
 ```

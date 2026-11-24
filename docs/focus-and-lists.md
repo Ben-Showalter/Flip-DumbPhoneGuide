@@ -8,6 +8,8 @@ Each entry gives the **rule** first, then *why* it exists.
   *Why:* the system's default focus indicator was too hard to see on these phones.
 - **ListView: `android:listSelector="@drawable/list_row_selector"` plus
   `android:drawSelectorOnTop="true"`, with a translucent fill and a 2dp accent stroke.**
+  If your focus tint is opaque, draw the selector behind the rows instead
+  (`drawSelectorOnTop="false"`). *Why:* a solid tint drawn on top hid menu text.
   *Why:* the list draws the selector at the selected item's bounds itself, which is more reliable
   than relying on the row view's state. See `templates/list_row_selector.xml`.
 - **RecyclerView rows: a tinted background plus a 5–6dp accent bar.**
@@ -32,6 +34,13 @@ Each entry gives the **rule** first, then *why* it exists.
   [keys.md](keys.md), OK/CENTER).
 - **Screens that are driven entirely by keys may skip focus.** Handle every key in
   `dispatchKeyEvent` and highlight the on-screen control while its key is held.
+
+- **For long lists, prefer a recycled `ListView` that keeps focus itself and moves its
+  *selection*, with non-focusable rows (`itemsCanFocus = false`).** *Why:* on Kyocera every
+  focus change runs the IME's failing `getShwoingNowFlag` path, which made focus-per-row lists
+  sluggish.
+- **Make section headers disabled list items** so the D-pad skips them, and show an empty state
+  as a selectable row ("No events") so the screen still has a focus.
 
 ## Starting focus and restoring it
 - **Every screen has a predictable starting focus, using `post { requestFocus() }` as a fallback.**
@@ -67,6 +76,16 @@ Each entry gives the **rule** first, then *why* it exists.
     list's bottom, even when the row is taller than the list.
   - Sending a message always follows again.
 
+- **When stepping through tall RecyclerView rows, measure the current (attached) row**, not the
+  next one. *Why:* RecyclerView doesn't keep off-screen neighbours attached.
+- **A "scroll within a tall row" step must never loop.** Scroll only while
+  `canScrollVertically` is true; otherwise move focus on. *Why:* a row whose edge sat a few
+  pixels past the bottom trapped Down.
+- **Derive a hand-made list's last index from its rows list**, never from a hard-coded count.
+  *Why:* a stale count crashed on Down at the last row.
+- **App drawers: restart focus on the first page's centre cell every time the drawer resumes,**
+  not only on first open.
+
 ## Menus and dialogs
 - **Use `AlertDialog.Builder.setItems(...)` for menus.** It works with the D-pad as is.
 - **Custom menu sheets:** anchor them to the bottom, use about 5 focusable rows, let Back close
@@ -76,3 +95,5 @@ Each entry gives the **rule** first, then *why* it exists.
 - **Don't use screen pinning (`startLockTask`).** Its confirmation dialog can't be reached
   with the D-pad.
 - **Avoid WebView UIs.** They're designed for touch and use an old system WebView.
+- **Sound pickers: preview the highlighted sound after a ~250ms pause**, so holding Down doesn't
+  play every sound it passes. Each new preview stops the last. Back closes, with no Done button.
