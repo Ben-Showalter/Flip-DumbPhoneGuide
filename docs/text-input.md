@@ -90,6 +90,25 @@ Template: [`templates/NoImeEditText.kt`](../templates/NoImeEditText.kt).
 - **Don't invalidate a custom cursor overlay on every `onDraw`.** Redraw only when the scroll
   position changed. *Why:* it redrew 60 times a second, draining the battery.
 
+## Kyocera fields, for keyboards
+
+Rules for an input method (keyboard app), learned building TurboType on the E4810/E4811.
+
+- **Kyocera "Done" fields (`jp.kyocera.*`, `IME_ACTION_DONE`) close only when the keyboard
+  sends the private command `Finish_IME`,** then the Done action, the way the stock iWnn keyboard
+  does (TT9 issue #423).
+- **Only single-line Done fields need the full-screen (extract) editor.** Mail's "Enter address"
+  doesn't draw its own text, so it needs it. *Why:* Kyocera **Notepad** (`jp.kyocera.memo`) is
+  a multi-line Done field (`inputType=0x24001`: text, multi-line, sentence caps;
+  `imeOptions=0x40000006`: Done plus `IME_FLAG_NO_ENTER_ACTION`) that draws its own text, and
+  the full-screen editor covered the note, so typing seemed to do nothing (2026-11-25,
+  E4810 and E4811).
+- **Kyocera fields name their soft-key labels in `privateImeOptions`,** for example Notepad's
+  `KC_IME_CSK_LABEL:Save,KC_IME_RSK_LABEL:Cancel`: OK is "Save" and the right soft key "Cancel"
+  while the stock keyboard is in use.
+- **Notepad's note list (`MemoActivity`) reports `inputType=0x0`.** A keyboard should leave
+  such a screen alone (pass every key through).
+
 ## Secrets and setup text
 - **Never make the user type an API key on the keypad.**
   - Read it from a text file such as `Internal storage/<AppName>/api_key.txt`. Create the

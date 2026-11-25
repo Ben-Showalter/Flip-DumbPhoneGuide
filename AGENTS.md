@@ -142,6 +142,9 @@ because the obvious approach broke on the device.
 - **The system T9 keyboard can swallow `KEYCODE_SOFT_RIGHT`** while a text field is focused,
   and on Kyocera it uses the left soft key for its T9/abc/123 menu. Screens with text entry
   need another route to Options: a focusable "More options…" row that opens the menu with OK.
+- **Writing a keyboard (IME): use the full-screen editor only for single-line Kyocera "Done"
+  fields.** Kyocera Notepad (`jp.kyocera.memo`) is a multi-line Done field that draws its own
+  text; the full-screen editor covered it. See [docs/text-input.md](docs/text-input.md#kyocera-fields-for-keyboards).
 - **T9 conventions for a custom T9:**
 
   | Key | Behaviour |
