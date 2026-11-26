@@ -52,6 +52,14 @@ Confirmed on a real phone. Starter code: `templates/SystemBars.kt`.
   vendor builds of that theme keep drawing a bottom strip after a hide that looks successful.
   AppCompat themes don't.
 - *Source:* the same approach the vela-dpad maps app uses, through its Yapchik softkey library.
+- **For an app you can't change (Dewdrop, say), the system setting `policy_control` hides the
+  bar for that package:**
+  `adb shell settings put global policy_control immersive.navigation=com.basicphones.dewdrop`,
+  undone with `adb shell settings put global policy_control null`. *Why:* tested on the E4810
+  (2026-11-26): the bar is gone in that app, **but it comes back whenever a keyboard is up**,
+  because Android shows the navigation bar for an open keyboard. A keyboard (IME) can only try
+  from its own window (the same hide flags, or a bar colour); TurboType does that as an
+  experiment, untested yet. The setting exists on Android 7-10 only.
 
 ## Icons
 - **Launcher icon: a transparent background, with the shape filling about 85% of the square.**
