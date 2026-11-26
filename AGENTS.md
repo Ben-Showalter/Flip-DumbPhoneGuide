@@ -181,7 +181,7 @@ because the obvious approach broke on the device.
   live there) and hide it when focus leaves.
 - **For an app you can't change, `adb shell settings put global policy_control
   immersive.navigation=<package>` hides the bar (E4810), but it comes back whenever a keyboard
-  is up.** Undo with `policy_control null`.
+  is up, and a keyboard can't hide or recolour it.** Undo with `policy_control null`.
 - **Launcher icon:** transparent background, the shape filling about 85% of the square, its
   main body centred. Cut a letter out with a second path and `fillType="evenOdd"`.
 - **Outer display (Kyocera sub-LCD):** the message card draws an icon and **one line** of text

@@ -57,9 +57,10 @@ Confirmed on a real phone. Starter code: `templates/SystemBars.kt`.
   `adb shell settings put global policy_control immersive.navigation=com.basicphones.dewdrop`,
   undone with `adb shell settings put global policy_control null`. *Why:* tested on the E4810
   (2026-11-26): the bar is gone in that app, **but it comes back whenever a keyboard is up**,
-  because Android shows the navigation bar for an open keyboard. A keyboard (IME) can only try
-  from its own window (the same hide flags, or a bar colour); TurboType does that as an
-  experiment, untested yet. The setting exists on Android 7-10 only.
+  because Android shows the navigation bar for an open keyboard. A keyboard (IME) can't stop
+  that: TurboType set the hide flags and a navigation-bar colour on its own window, and on the
+  E4810 both were ignored and its panel was pushed under the bar. The setting exists on
+  Android 7-10 only.
 
 ## Icons
 - **Launcher icon: a transparent background, with the shape filling about 85% of the square.**
